@@ -18,6 +18,26 @@ class ViewController: UIViewController {
     
     // Reference to the recent files menu
     private var recentFilesMenu: UIMenu?
+    
+    // JSON Minimap for visual navigation
+    private let jsonMinimap: JsonMinimap = {
+        let minimap = JsonMinimap()
+        minimap.translatesAutoresizingMaskIntoConstraints = false
+        return minimap
+    }()
+    
+    // JSON Path Navigator for breadcrumb navigation
+    private let jsonPathNavigator: JsonPathNavigator = {
+        let navigator = JsonPathNavigator()
+        navigator.translatesAutoresizingMaskIntoConstraints = false
+        return navigator
+    }()
+    
+    // Current navigation path components
+    private var currentPath: [String] = ["$"]
+    
+    // Scroll position in text view
+    private var textViewContentOffset: CGPoint = .zero
 
     private let openButton: UIButton = {
         let button = UIButton(type: .system)
@@ -44,6 +64,18 @@ class ViewController: UIViewController {
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.isHidden = true // Initially hidden
         return stackView
+    }()
+    
+    // Container for the path navigator
+    private let navigationContainerView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .systemBackground
+        view.layer.cornerRadius = 8
+        view.layer.borderWidth = 0.5
+        view.layer.borderColor = UIColor.systemGray4.cgColor
+        view.isHidden = true // Initially hidden
+        return view
     }()
     
     private let loadSampleButton: UIButton = {
@@ -86,6 +118,16 @@ class ViewController: UIViewController {
         textView.contentInset = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
         textView.translatesAutoresizingMaskIntoConstraints = false
         return textView
+    }()
+    
+    // Main content stack view for file content and minimap
+    private let contentStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.distribution = .fill
+        stackView.spacing = 8
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
     }()
 
     // Removed SyntaxColors struct
@@ -147,7 +189,14 @@ class ViewController: UIViewController {
         jsonActionsStackView.addArrangedSubview(viewModeSegmentedControl)
         view.addSubview(jsonActionsStackView)
         
-        view.addSubview(fileContentView) // Use renamed view
+        // Set up navigation container with breadcrumbs
+        navigationContainerView.addSubview(jsonPathNavigator)
+        view.addSubview(navigationContainerView)
+        
+        // Set up content stack view with text view and minimap
+        contentStackView.addArrangedSubview(fileContentView) // Use renamed view
+        contentStackView.addArrangedSubview(jsonMinimap)
+        view.addSubview(contentStackView)
 
         let layoutGuide = view.safeAreaLayoutGuide
 
@@ -157,17 +206,44 @@ class ViewController: UIViewController {
             
             jsonActionsStackView.topAnchor.constraint(equalTo: actionsStackView.bottomAnchor, constant: 16),
             jsonActionsStackView.centerXAnchor.constraint(equalTo: layoutGuide.centerXAnchor),
-
-            fileContentView.topAnchor.constraint(equalTo: jsonActionsStackView.bottomAnchor, constant: 16),
-            fileContentView.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: 16),
-            fileContentView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
-            fileContentView.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -16)
+            
+            navigationContainerView.topAnchor.constraint(equalTo: jsonActionsStackView.bottomAnchor, constant: 16),
+            navigationContainerView.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: 16),
+            navigationContainerView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
+            navigationContainerView.heightAnchor.constraint(equalToConstant: 44),
+            
+            jsonPathNavigator.topAnchor.constraint(equalTo: navigationContainerView.topAnchor),
+            jsonPathNavigator.leadingAnchor.constraint(equalTo: navigationContainerView.leadingAnchor),
+            jsonPathNavigator.trailingAnchor.constraint(equalTo: navigationContainerView.trailingAnchor),
+            jsonPathNavigator.bottomAnchor.constraint(equalTo: navigationContainerView.bottomAnchor),
+            
+            contentStackView.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 16),
+            contentStackView.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: 16),
+            contentStackView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
+            contentStackView.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -16),
+            
+            jsonMinimap.widthAnchor.constraint(equalToConstant: 80)
         ])
 
         // We'll configure the open button menu instead of a direct action
         loadSampleButton.addTarget(self, action: #selector(loadSampleButtonTapped), for: .touchUpInside)
         validateButton.addTarget(self, action: #selector(validateJsonTapped), for: .touchUpInside)
         viewModeSegmentedControl.addTarget(self, action: #selector(viewModeChanged), for: .valueChanged)
+        
+        // Set up navigation callbacks
+        jsonMinimap.onMinimapSelection = { [weak self] path in
+            self?.navigateToJsonPath(path)
+        }
+        
+        jsonPathNavigator.onPathSelected = { [weak self] index in
+            guard let self = self, index < self.currentPath.count else { return }
+            // Truncate the path to the selected index
+            let newPath = Array(self.currentPath.prefix(index + 1))
+            self.navigateToPath(newPath)
+        }
+        
+        // Set up scroll observation for minimap updates
+        fileContentView.delegate = self
     }
 
     // Update the recent files menu based on the current recent files list
@@ -356,8 +432,22 @@ class ViewController: UIViewController {
                         DispatchQueue.main.async {
                             self.title = "JSON Viewer: \(filename)"
                             self.jsonActionsStackView.isHidden = false
+                            self.navigationContainerView.isHidden = false
+                            self.jsonMinimap.isHidden = false
+                            
+                            // Reset navigation path to root
+                            self.currentPath = ["$"]
+                            self.jsonPathNavigator.updatePath(self.currentPath)
+                            
+                            // Set the JSON structure for the minimap
+                            self.jsonMinimap.setJsonStructure(jsonObject)
+                            
+                            // Display the JSON with syntax highlighting
                             let attributedString = self.jsonHighlighter.highlightJSON(prettyText, font: self.fileContentView.font)
                             self.fileContentView.attributedText = attributedString
+                            
+                            // Initial viewport update for minimap
+                            self.updateMinimapViewport()
                         }
                         return // Exit early as we've handled the JSON display
                     }
@@ -370,6 +460,8 @@ class ViewController: UIViewController {
                 displayText = text
                 DispatchQueue.main.async {
                     self.jsonActionsStackView.isHidden = true
+                    self.navigationContainerView.isHidden = true
+                    self.jsonMinimap.isHidden = true
                     self.currentJsonObject = nil
                 }
             }
@@ -389,6 +481,8 @@ class ViewController: UIViewController {
         DispatchQueue.main.async {
             self.title = "File Viewer: \(filename)"
             self.jsonActionsStackView.isHidden = true
+            self.navigationContainerView.isHidden = true
+            self.jsonMinimap.isHidden = true
             self.currentJsonObject = nil
             self.fileContentView.attributedText = attributedString
         }
@@ -564,6 +658,151 @@ class ViewController: UIViewController {
         // Ensure this runs on the main thread
         DispatchQueue.main.async {
             self.fileContentView.attributedText = attributedString
+        }
+    }
+}
+
+// MARK: - JSON Navigation Methods
+
+private extension ViewController {
+    // Update the viewport rectangle in the minimap
+    func updateMinimapViewport() {
+        let visibleRect = CGRect(
+            x: fileContentView.contentOffset.x,
+            y: fileContentView.contentOffset.y,
+            width: fileContentView.bounds.width,
+            height: fileContentView.bounds.height
+        )
+        
+        let contentSize = fileContentView.contentSize
+        jsonMinimap.updateVisibleRect(visibleRect, contentSize: contentSize)
+    }
+    
+    // Navigate to a specific path in the JSON
+    func navigateToJsonPath(_ path: String) {
+        // Parse the path into components
+        let components = parseJsonPath(path)
+        navigateToPath(components)
+    }
+    
+    // Navigate to a path represented as an array of components
+    func navigateToPath(_ pathComponents: [String]) {
+        guard let jsonObject = currentJsonObject else { return }
+        
+        // Update the current path
+        self.currentPath = pathComponents
+        
+        // Update the path navigator
+        jsonPathNavigator.updatePath(pathComponents)
+        
+        // Find the node at this path
+        var currentNode = jsonObject
+        var jsonPath = pathComponents.first ?? "$" // Start at root
+        
+        // Skip the root component ($) when traversing
+        for component in pathComponents.dropFirst() {
+            if component.hasPrefix("[") && component.hasSuffix("]") {
+                // Array index
+                let indexStr = component.dropFirst().dropLast()
+                if let index = Int(indexStr), let array = currentNode as? [Any], index < array.count {
+                    currentNode = array[index]
+                    jsonPath += component
+                } else {
+                    // Invalid path
+                    return
+                }
+            } else {
+                // Object property
+                if let dict = currentNode as? [String: Any], let value = dict[component] {
+                    currentNode = value
+                    jsonPath += "." + component
+                } else {
+                    // Invalid path
+                    return
+                }
+            }
+        }
+        
+        // Generate a tree or formatted JSON for this node
+        if viewModeSegmentedControl.selectedSegmentIndex == 0 { // Text mode
+            do {
+                // Pretty-print the node
+                let prettyData = try JSONSerialization.data(withJSONObject: currentNode, options: [.prettyPrinted, .sortedKeys])
+                if let prettyText = String(data: prettyData, encoding: .utf8) {
+                    let attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
+                    fileContentView.attributedText = attributedString
+                }
+            } catch {
+                displayError("Error formatting JSON node: \(error.localizedDescription)")
+            }
+        } else { // Tree mode
+            let treeText = generateJsonTreeView(currentNode, path: pathComponents.last ?? "$")
+            let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
+            let attributedString = NSAttributedString(
+                string: treeText,
+                attributes: [.foregroundColor: UIColor.label, .font: baseFont]
+            )
+            fileContentView.attributedText = attributedString
+        }
+    }
+    
+    // Parse a JSON path string into components
+    func parseJsonPath(_ path: String) -> [String] {
+        var components: [String] = []
+        var currentComponent = ""
+        var inBracket = false
+        
+        // Handle root component
+        if path.hasPrefix("$") {
+            components.append("$")
+        }
+        
+        // Parse the rest of the path
+        for char in path {
+            if char == "[" {
+                // Start of array index
+                if !currentComponent.isEmpty {
+                    components.append(currentComponent)
+                    currentComponent = ""
+                }
+                currentComponent += String(char)
+                inBracket = true
+            } else if char == "]" {
+                // End of array index
+                currentComponent += String(char)
+                components.append(currentComponent)
+                currentComponent = ""
+                inBracket = false
+            } else if char == "." && !inBracket {
+                // Property separator
+                if !currentComponent.isEmpty {
+                    components.append(currentComponent)
+                    currentComponent = ""
+                }
+            } else {
+                // Part of the current component
+                currentComponent += String(char)
+            }
+        }
+        
+        // Add the last component if any
+        if !currentComponent.isEmpty {
+            components.append(currentComponent)
+        }
+        
+        return components
+    }
+}
+
+// MARK: - UITextViewDelegate for Minimap Updates
+
+extension ViewController: UITextViewDelegate {
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        if scrollView === fileContentView {
+            // Store current offset
+            textViewContentOffset = scrollView.contentOffset
+            // Update minimap viewport
+            updateMinimapViewport()
         }
     }
 }
