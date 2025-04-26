@@ -132,6 +132,40 @@ class FileMetadataView: UIView {
         }
     }
     
+    /// Update UI colors when the interface style changes (light/dark mode)
+    func updateColorsForCurrentStyle() {
+        // Update text colors for labels that might need adjustment
+        filenameLabel.textColor = .label
+        fileTypeLabel.textColor = .secondaryLabel
+        fileSizeLabel.textColor = .secondaryLabel
+        lastModifiedLabel.textColor = .secondaryLabel
+        
+        // Update icon tint if using a system color
+        if let url = filenameLabel.text.map({ URL(fileURLWithPath: $0) }) {
+            fileIconView.tintColor = FileTypeIconHelper.getColorForFile(url: url)
+        } else {
+            fileIconView.tintColor = .label
+        }
+        
+        // Update separators if any exist
+        for subview in stackView.arrangedSubviews where subview is UIView && !(subview is UILabel) && !(subview is UIStackView) && !(subview is UIImageView) {
+            if let separator = subview as? UIView {
+                separator.backgroundColor = .systemGray4
+            }
+        }
+        
+        // Update any custom labels that might have been added
+        for subview in stackView.arrangedSubviews where subview is UILabel && 
+                                                         subview != fileTypeLabel && 
+                                                         subview != fileSizeLabel && 
+                                                         subview != lastModifiedLabel && 
+                                                         subview != filenameLabel {
+            if let label = subview as? UILabel {
+                label.textColor = .secondaryLabel
+            }
+        }
+    }
+    
     /// Update the view with file metadata
     /// - Parameter url: The URL of the file
     func updateWithFileURL(_ url: URL) {

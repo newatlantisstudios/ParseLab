@@ -190,11 +190,50 @@ class JsonTreeNodeCell: UITableViewCell {
     func flash() {
         let originalColor = backgroundColor
         UIView.animate(withDuration: 0.15, animations: {
+            // Use a color that works well in both light and dark mode
             self.backgroundColor = .systemBlue.withAlphaComponent(0.1)
         }) { _ in
             UIView.animate(withDuration: 0.15, animations: {
                 self.backgroundColor = originalColor
             })
+        }
+    }
+    
+    // Update colors when traitCollection changes (light/dark mode)
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        
+        // Only update if the interface style actually changed
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            // Update text colors to adapt to new interface style
+            keyLabel.textColor = .label
+            valueLabel.textColor = .secondaryLabel
+            
+            // Update icon colors if needed
+            if let node = self.node {
+                // Reapply node icon color according to type
+                let iconColor: UIColor
+                
+                switch node.type {
+                case .object:
+                    iconColor = .systemBlue
+                case .array:
+                    iconColor = .systemGreen
+                case .string:
+                    iconColor = .systemOrange
+                case .number:
+                    iconColor = .systemPurple
+                case .boolean:
+                    iconColor = .systemYellow
+                case .null:
+                    iconColor = .systemGray
+                }
+                
+                nodeIconView.tintColor = iconColor
+            }
+            
+            // Update expand button tint color
+            expandButton.tintColor = .systemGray
         }
     }
     

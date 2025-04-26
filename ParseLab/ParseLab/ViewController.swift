@@ -330,6 +330,9 @@ class ViewController: UIViewController {
             
             // Ensure layout is correctly applied at startup
             self.view.layoutIfNeeded()
+            
+            // Apply initial interface style adjustments
+            self.updateInterfaceForCurrentStyle()
         }
     }
 
@@ -351,7 +354,7 @@ class ViewController: UIViewController {
     }
 
     private func setupUI() {
-        title = "File Viewer" // More generic title
+        title = "ParseLab" // More generic title
         view.backgroundColor = .systemBackground
         
         // Set up all UI components
@@ -769,7 +772,7 @@ class ViewController: UIViewController {
 
         // Ensure UI updates on main thread
         DispatchQueue.main.async {
-            self.title = "File Viewer: \(filename)"
+            self.title = "ParseLab: \(filename)"
             self.jsonActionsStackView.isHidden = true
             // Hide the second row JSON actions stack view too
             for subview in self.view.subviews {

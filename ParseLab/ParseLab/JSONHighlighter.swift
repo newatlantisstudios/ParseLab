@@ -63,7 +63,9 @@ class JSONHighlighter {
     }
     
     // Define syntax colors for JSON highlighting
-    private struct SyntaxColors {
+    // Using system colors that automatically adapt to light/dark mode
+    struct SyntaxColors {
+        // These system colors automatically adapt to the current interface style
         static let key = UIColor.systemBlue
         static let string = UIColor.systemGreen
         static let number = UIColor.systemOrange
@@ -71,6 +73,6 @@ class JSONHighlighter {
         static let null = UIColor.systemRed
         static let structural = UIColor.systemGray
         static let error = UIColor.systemRed
-        static let plainText = UIColor.label
+        static let plainText = UIColor.label // This adapts between black/white based on mode
     }
 }

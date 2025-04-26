@@ -9,13 +9,49 @@ import UIKit
 
 // Extension to handle trait collection changes
 extension ViewController {
-    // Update layout when trait collection changes (e.g., rotation or size class changes)
+    // Update layout when trait collection changes (e.g., rotation, size class changes, or dark/light mode)
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
         super.traitCollectionDidChange(previousTraitCollection)
         
-        // Only update if the size class actually changed
+        // Update for size class changes
         if previousTraitCollection?.horizontalSizeClass != traitCollection.horizontalSizeClass {
             updateSearchUILayout(for: traitCollection.horizontalSizeClass)
+        }
+        
+        // Update for dark/light mode changes
+        if previousTraitCollection?.userInterfaceStyle != traitCollection.userInterfaceStyle {
+            updateInterfaceForCurrentStyle()
+        }
+    }
+    
+    // Method to update UI for current interface style (light/dark mode)
+    func updateInterfaceForCurrentStyle() {
+        // Update container borders and backgrounds
+        searchContainerView.layer.borderColor = UIColor.systemGray4.cgColor
+        searchResultsTableView.layer.borderColor = UIColor.systemGray4.cgColor
+        navigationContainerView.layer.borderColor = UIColor.systemGray4.cgColor
+        fileContentView.layer.borderColor = UIColor.systemGray4.cgColor
+        
+        // If we have a JSON file open, reapply syntax highlighting
+        if let jsonContent = fileContentView.text, !jsonContent.isEmpty, 
+           jsonActionsStackView.isHidden == false, let jsonObject = currentJsonObject {
+            // We have JSON content, rehighlight it
+            if !isRawViewMode {
+                do {
+                    let data = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
+                    if let prettyText = String(data: data, encoding: .utf8) {
+                        let attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
+                        fileContentView.attributedText = attributedString
+                    }
+                } catch {
+                    // If there's an error, just keep the current text
+                }
+            }
+        }
+        
+        // If file metadata view is visible, update its colors
+        if !fileMetadataView.isHidden {
+            fileMetadataView.updateColorsForCurrentStyle()
         }
     }
 }
