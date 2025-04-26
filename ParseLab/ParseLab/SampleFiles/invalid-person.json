@@ -1,0 +1,17 @@
+{
+  "name": "J",
+  "age": 150,
+  "email": "not-an-email",
+  "address": {
+    "street": "456 Broadway",
+    "city": "Boston"
+  },
+  "phoneNumbers": [
+    {
+      "type": "unknown",
+      "number": "abc-def-ghij"
+    }
+  ],
+  "extraField": "This shouldn't be here",
+  "isActive": "not a boolean"
+}

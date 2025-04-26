@@ -39,7 +39,18 @@ extension ViewController {
         // Set up initial layout based on current size class
         updateSearchUILayout(for: traitCollection.horizontalSizeClass)
         
-        // Add search UI elements to the view hierarchy
+        // Make sure both views are added to the main view hierarchy first
+        if searchContainerView.superview == nil {
+            view.addSubview(searchContainerView)
+        }
+        if searchResultsTableView.superview == nil {
+            view.addSubview(searchResultsTableView)
+        }
+        if navigationContainerView.superview == nil {
+            view.addSubview(navigationContainerView)
+        }
+        
+        // Add search UI elements to the search container view
         searchContainerView.addSubview(searchTextField)
         searchContainerView.addSubview(searchOptionsStackView)
         searchContainerView.addSubview(searchButton)
@@ -79,11 +90,21 @@ extension ViewController {
         constraint.isActive = false
     }
     
+    // Remove existing constraints between searchContainerView and navigationContainerView
+    // to prevent issues when they don't share the same parent view
+    for constraint in view.constraints {
+        if (constraint.firstItem === searchContainerView && constraint.secondItem === navigationContainerView) ||
+           (constraint.firstItem === navigationContainerView && constraint.secondItem === searchContainerView) {
+            constraint.isActive = false
+        }
+    }
+    
+    // Ensure both views have a common ancestor (the main view) before setting constraints
     NSLayoutConstraint.activate([
-    // Search container constraints with proper z-index positioning
-    searchContainerView.topAnchor.constraint(equalTo: navigationContainerView.topAnchor),
-    searchContainerView.leadingAnchor.constraint(equalTo: navigationContainerView.leadingAnchor),
-    searchContainerView.trailingAnchor.constraint(equalTo: navigationContainerView.trailingAnchor),
+    // Search container constraints - position relative to the main view instead
+    searchContainerView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 136), // Approximate position
+    searchContainerView.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+    searchContainerView.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
     
     // Search text field
     searchTextField.topAnchor.constraint(equalTo: searchContainerView.topAnchor, constant: 12),

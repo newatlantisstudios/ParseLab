@@ -215,6 +215,13 @@ class ViewController: UIViewController {
     // Store search results
     internal var searchResults: [JSONSearchResult] = []
     
+        // File metadata UI elements
+    internal var fileMetadataView: FileMetadataView!
+    internal var fileInfoButton: UIButton!
+    internal var fileMetadataVisible: Bool = false
+    internal var originalContentStackTopConstraint: NSLayoutConstraint?
+    internal var metadataToContentConstraint: NSLayoutConstraint!
+    
     // Container for the path navigator
     internal let navigationContainerView: UIView = {
         let view = UIView()
@@ -295,6 +302,8 @@ class ViewController: UIViewController {
         setupUI()
         // Set up tree view controller
         setupTreeViewController()
+        // Set up schema validation
+        setupSchemaValidation()
         
         // Clear text view initially and show welcome message
         DispatchQueue.main.async {
@@ -306,6 +315,7 @@ class ViewController: UIViewController {
             JSON features:
             • Syntax highlighting
             • JSON validation
+            • JSON Schema validation
             • Tree view for complex JSON structures
             • In-depth JSON analytics
             
@@ -344,6 +354,9 @@ class ViewController: UIViewController {
         title = "File Viewer" // More generic title
         view.backgroundColor = .systemBackground
         
+        // Set up all UI components
+        setupUIComponents()
+        
         // Set up the Recent Files menu
         updateRecentFilesMenu()
         
@@ -362,10 +375,23 @@ class ViewController: UIViewController {
         actionsStackView.addArrangedSubview(loadSampleButton)
         view.addSubview(actionsStackView)
         
-        // Add JSON-specific controls
+        // Create a second JSON actions stack view for the second row
+        let jsonActionsSecondRowStackView = UIStackView()
+        jsonActionsSecondRowStackView.axis = .horizontal
+        jsonActionsSecondRowStackView.distribution = .fillProportionally
+        jsonActionsSecondRowStackView.spacing = 12
+        jsonActionsSecondRowStackView.translatesAutoresizingMaskIntoConstraints = false
+        jsonActionsSecondRowStackView.isHidden = true // Initially hidden
+        
+        // Add first row JSON-specific controls
         jsonActionsStackView.addArrangedSubview(validateButton)
-        jsonActionsStackView.addArrangedSubview(searchToggleButton)
-        jsonActionsStackView.addArrangedSubview(viewModeSegmentedControl)
+        
+        // Add second row JSON-specific controls
+        jsonActionsSecondRowStackView.addArrangedSubview(searchToggleButton)
+        jsonActionsSecondRowStackView.addArrangedSubview(viewModeSegmentedControl)
+        
+        // Add the second row stack view to the main view
+        view.addSubview(jsonActionsSecondRowStackView)
         
         // Setup the raw view toggle
         setupRawViewToggle()
@@ -395,6 +421,9 @@ class ViewController: UIViewController {
         // Create and store a variable for content stack view's top constraint
         let contentStackTopConstraint = contentStackView.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 16)
         
+        // Store the constraint for later use with file metadata view
+        self.originalContentStackTopConstraint = contentStackTopConstraint
+        
         NSLayoutConstraint.activate([
             actionsStackView.topAnchor.constraint(equalTo: layoutGuide.topAnchor, constant: 16),
             actionsStackView.centerXAnchor.constraint(equalTo: layoutGuide.centerXAnchor),
@@ -402,7 +431,11 @@ class ViewController: UIViewController {
             jsonActionsStackView.topAnchor.constraint(equalTo: actionsStackView.bottomAnchor, constant: 16),
             jsonActionsStackView.centerXAnchor.constraint(equalTo: layoutGuide.centerXAnchor),
             
-            navigationContainerView.topAnchor.constraint(equalTo: jsonActionsStackView.bottomAnchor, constant: 16),
+            // Second row JSON actions constraints
+            jsonActionsSecondRowStackView.topAnchor.constraint(equalTo: jsonActionsStackView.bottomAnchor, constant: 12),
+            jsonActionsSecondRowStackView.centerXAnchor.constraint(equalTo: layoutGuide.centerXAnchor),
+            
+            navigationContainerView.topAnchor.constraint(equalTo: jsonActionsSecondRowStackView.bottomAnchor, constant: 16),
             navigationContainerView.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: 16),
             navigationContainerView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
             navigationContainerView.heightAnchor.constraint(equalToConstant: 44),
@@ -574,6 +607,10 @@ class ViewController: UIViewController {
 
     // Method called by SceneDelegate or DocumentPicker
     func handleFileUrl(_ url: URL) {
+        // Hide file metadata view when loading a new file
+        fileMetadataView.isHidden = true
+        fileInfoButton.setTitle("File Info", for: .normal)
+        fileMetadataVisible = false
         // Start accessing the security-scoped resource.
         // Important: SceneDelegate already calls startAccessing, but UIDocumentPicker does not automatically.
         // Calling it again here is safe and ensures access regardless of the entry point.
@@ -616,6 +653,9 @@ class ViewController: UIViewController {
             
             // Update open button menu with new recent files list
             updateRecentFilesMenu()
+            
+            // Enable file info button
+            fileInfoButton.isEnabled = true
         } catch {
             displayError("Error reading file: \(error.localizedDescription)")
         }
@@ -655,6 +695,12 @@ class ViewController: UIViewController {
                         DispatchQueue.main.async {
                             self.title = "JSON Viewer: \(filename)"
                             self.jsonActionsStackView.isHidden = false
+                            // Show the second row JSON actions stack view too
+                            for subview in self.view.subviews {
+                                if let stackView = subview as? UIStackView, stackView != self.jsonActionsStackView && stackView != self.actionsStackView && stackView != self.contentStackView {
+                                    stackView.isHidden = false
+                                }
+                            }
                             self.navigationContainerView.isHidden = false
                             self.jsonMinimap.isHidden = false
                             
@@ -696,6 +742,12 @@ class ViewController: UIViewController {
                 displayText = text
                 DispatchQueue.main.async {
                     self.jsonActionsStackView.isHidden = true
+                    // Hide the second row JSON actions stack view too
+                    for subview in self.view.subviews {
+                        if let stackView = subview as? UIStackView, stackView != self.jsonActionsStackView && stackView != self.actionsStackView && stackView != self.contentStackView {
+                            stackView.isHidden = true
+                        }
+                    }
                     self.navigationContainerView.isHidden = true
                     self.jsonMinimap.isHidden = true
                     self.searchContainerView.isHidden = true
@@ -719,6 +771,12 @@ class ViewController: UIViewController {
         DispatchQueue.main.async {
             self.title = "File Viewer: \(filename)"
             self.jsonActionsStackView.isHidden = true
+            // Hide the second row JSON actions stack view too
+            for subview in self.view.subviews {
+                if let stackView = subview as? UIStackView, stackView != self.jsonActionsStackView && stackView != self.actionsStackView && stackView != self.contentStackView {
+                    stackView.isHidden = true
+                }
+            }
             self.navigationContainerView.isHidden = true
             self.jsonMinimap.isHidden = true
             self.currentJsonObject = nil
@@ -743,6 +801,12 @@ class ViewController: UIViewController {
     @objc private func loadSampleButtonTapped() {
         // Get the URL to the sample.json file in the app bundle
         if let sampleJsonURL = Bundle.main.url(forResource: "sample", withExtension: "json") {
+            // Make sure the second row stack view is visible when loading JSON
+            for subview in view.subviews {
+                if let stackView = subview as? UIStackView, stackView != jsonActionsStackView && stackView != actionsStackView && stackView != contentStackView {
+                    stackView.isHidden = false
+                }
+            }
             do {
                 let data = try Data(contentsOf: sampleJsonURL)
                 
@@ -767,7 +831,14 @@ class ViewController: UIViewController {
     
     // Helper method for raw view extension to add toggle button
     internal func addRawViewToggleButtonToActions(_ button: UIButton) {
+        // Add to first row JSON actions stack view
         jsonActionsStackView.insertArrangedSubview(button, at: 1)
+    }
+    
+    // Helper method for file metadata extension to add file info button
+    internal func addFileInfoButtonToActions(_ button: UIButton) {
+        // Add to main actions stack view
+        actionsStackView.addArrangedSubview(button)
     }
     
     // Helper method to check if current mode is text mode
@@ -1101,6 +1172,49 @@ extension ViewController: UITextFieldDelegate {
             return true
         }
         return true
+    }
+}
+
+// MARK: - Toast Message Helper
+
+extension ViewController {
+    // Show a toast message
+    func showToast(message: String, duration: TimeInterval = 2.0) {
+        let toastLabel = UILabel()
+        toastLabel.backgroundColor = UIColor.black.withAlphaComponent(0.7)
+        toastLabel.textColor = .white
+        toastLabel.textAlignment = .center
+        toastLabel.font = .systemFont(ofSize: 14)
+        toastLabel.text = message
+        toastLabel.alpha = 0
+        toastLabel.layer.cornerRadius = 10
+        toastLabel.clipsToBounds = true
+        toastLabel.numberOfLines = 0
+        toastLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        view.addSubview(toastLabel)
+        
+        NSLayoutConstraint.activate([
+            toastLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            toastLabel.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -32),
+            toastLabel.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, constant: -40),
+            toastLabel.heightAnchor.constraint(greaterThanOrEqualToConstant: 40)
+        ])
+        
+        // Add padding
+        toastLabel.layoutIfNeeded()
+        let paddingInsets = UIEdgeInsets(top: 10, left: 15, bottom: 10, right: 15)
+        toastLabel.frame = toastLabel.frame.inset(by: paddingInsets.inverted())
+        
+        UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseIn, animations: {
+            toastLabel.alpha = 1
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.3, delay: duration, options: .curveEaseOut, animations: {
+                toastLabel.alpha = 0
+            }, completion: { _ in
+                toastLabel.removeFromSuperview()
+            })
+        })
     }
 }
 

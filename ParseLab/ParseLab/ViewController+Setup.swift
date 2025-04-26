@@ -11,8 +11,14 @@ import UIKit
 extension ViewController {
     // Call this method from setupUI in the main ViewController
     func setupUIComponents() {
-        // Setup search UI
+        // Setup search UI first
         setupSearchUI()
+        
+        // Setup file metadata view after other UI elements are in place
+        // This ensures the navigation container view is already in the view hierarchy
+        DispatchQueue.main.async {
+            self.setupFileMetadataView()
+        }
         
         // Register search result cells
         searchResultsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "SearchResultCell")
