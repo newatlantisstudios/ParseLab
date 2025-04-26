@@ -11,30 +11,34 @@ import UniformTypeIdentifiers
 class ViewController: UIViewController {
     
     // JSON Highlighter instance
-    private let jsonHighlighter = JSONHighlighter()
+    internal let jsonHighlighter = JSONHighlighter()
+    
+    // JSON Searcher instance
+    private let jsonSearcher = JSONSearcher()
     
     // Keep track of parsed JSON for tree view
-    private var currentJsonObject: Any? = nil
+    // Keep track of parsed JSON for tree view
+    internal var currentJsonObject: Any? = nil
     
     // Reference to the recent files menu
     private var recentFilesMenu: UIMenu?
     
     // JSON Minimap for visual navigation
-    private let jsonMinimap: JsonMinimap = {
+    internal let jsonMinimap: JsonMinimap = {
         let minimap = JsonMinimap()
         minimap.translatesAutoresizingMaskIntoConstraints = false
         return minimap
     }()
     
     // JSON Path Navigator for breadcrumb navigation
-    private let jsonPathNavigator: JsonPathNavigator = {
+    internal let jsonPathNavigator: JsonPathNavigator = {
         let navigator = JsonPathNavigator()
         navigator.translatesAutoresizingMaskIntoConstraints = false
         return navigator
     }()
     
     // Current navigation path components
-    private var currentPath: [String] = ["$"]
+    internal var currentPath: [String] = ["$"]
     
     // Scroll position in text view
     private var textViewContentOffset: CGPoint = .zero
@@ -56,7 +60,7 @@ class ViewController: UIViewController {
         return stackView
     }()
     
-    private let jsonActionsStackView: UIStackView = {
+    internal let jsonActionsStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .horizontal
         stackView.distribution = .equalSpacing
@@ -66,8 +70,135 @@ class ViewController: UIViewController {
         return stackView
     }()
     
+    // Toggle button for raw/formatted view
+    internal var rawViewToggleButton: UIButton!
+    
+    // Track if we're in raw view mode
+    internal var isRawViewMode = false
+    
+    // MARK: - Search UI Elements
+    
+    // Search container for JSON search functionality
+    internal let searchContainerView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        view.backgroundColor = .systemBackground
+        view.layer.cornerRadius = 8
+        view.layer.borderWidth = 0.5
+        view.layer.borderColor = UIColor.systemGray4.cgColor
+        view.isHidden = true // Initially hidden
+        return view
+    }()
+    
+    // Search text field for JSON search
+    internal let searchTextField: UITextField = {
+        let textField = UITextField()
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.placeholder = "Search JSON keys and values..."
+        textField.borderStyle = .roundedRect
+        textField.clearButtonMode = .whileEditing
+        textField.returnKeyType = .search
+        return textField
+    }()
+    
+    // Search options container using stack view for better layout
+    internal let searchOptionsStackView: UIStackView = {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.distribution = .fillProportionally
+        stackView.spacing = 12
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        return stackView
+    }()
+    
+    // Search in keys checkbox
+    internal let searchKeysSwitch: UISwitch = {
+        let switchControl = UISwitch()
+        switchControl.translatesAutoresizingMaskIntoConstraints = false
+        switchControl.isOn = true
+        return switchControl
+    }()
+    
+    internal let searchKeysLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Keys"
+        label.font = .systemFont(ofSize: 14)
+        return label
+    }()
+    
+    // Search in values checkbox
+    internal let searchValuesSwitch: UISwitch = {
+        let switchControl = UISwitch()
+        switchControl.translatesAutoresizingMaskIntoConstraints = false
+        switchControl.isOn = true
+        return switchControl
+    }()
+    
+    internal let searchValuesLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Values"
+        label.font = .systemFont(ofSize: 14)
+        return label
+    }()
+    
+    // Case sensitive checkbox
+    internal let caseSensitiveSwitch: UISwitch = {
+        let switchControl = UISwitch()
+        switchControl.translatesAutoresizingMaskIntoConstraints = false
+        switchControl.isOn = false
+        return switchControl
+    }()
+    
+    internal let caseSensitiveLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "Case Sensitive"
+        label.font = .systemFont(ofSize: 14)
+        return label
+    }()
+    
+    // Search button
+    internal let searchButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Search", for: .normal)
+        button.backgroundColor = .systemBlue
+        button.setTitleColor(.white, for: .normal)
+        button.layer.cornerRadius = 8
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
+        return button
+    }()
+    
+    // Search results table view
+    internal let searchResultsTableView: UITableView = {
+        let tableView = UITableView()
+        tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.backgroundColor = .systemBackground
+        tableView.layer.cornerRadius = 8
+        tableView.layer.borderWidth = 0.5
+        tableView.layer.borderColor = UIColor.systemGray4.cgColor
+        tableView.isHidden = true // Initially hidden
+        return tableView
+    }()
+    
+    // Close search view button
+    internal let closeSearchButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
+        button.tintColor = .systemGray
+        return button
+    }()
+    
+    // Store search results
+    internal var searchResults: [JSONSearchResult] = []
+    
     // Container for the path navigator
-    private let navigationContainerView: UIView = {
+    internal let navigationContainerView: UIView = {
         let view = UIView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.backgroundColor = .systemBackground
@@ -92,6 +223,14 @@ class ViewController: UIViewController {
         return button
     }()
     
+    private let searchToggleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Search", for: .normal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
+        return button
+    }()
+    
     private let treeViewButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Tree View", for: .normal)
@@ -99,7 +238,7 @@ class ViewController: UIViewController {
         return button
     }()
     
-    private let viewModeSegmentedControl: UISegmentedControl = {
+    internal let viewModeSegmentedControl: UISegmentedControl = {
         let items = ["Text", "Tree"]
         let control = UISegmentedControl(items: items)
         control.selectedSegmentIndex = 0
@@ -107,7 +246,7 @@ class ViewController: UIViewController {
         return control
     }()
 
-    private let fileContentView: UITextView = { // Renamed from jsonTextView
+    internal let fileContentView: UITextView = { // Renamed from jsonTextView
         let textView = UITextView()
         textView.isEditable = false
         textView.font = .monospacedSystemFont(ofSize: 14, weight: .regular) // Keep monospaced for now
@@ -121,7 +260,7 @@ class ViewController: UIViewController {
     }()
     
     // Main content stack view for file content and minimap
-    private let contentStackView: UIStackView = {
+    internal let contentStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .horizontal
         stackView.distribution = .fill
@@ -136,6 +275,8 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         // Set up UI
         setupUI()
+        // Set up tree view controller
+        setupTreeViewController()
         
         // Clear text view initially and show welcome message
         DispatchQueue.main.async {
@@ -158,11 +299,27 @@ class ViewController: UIViewController {
             
             self.fileContentView.text = welcomeMessage
             self.fileContentView.textColor = .label
+            
+            // Ensure layout is correctly applied at startup
+            self.view.layoutIfNeeded()
         }
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
         return .default
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Ensure the navigation container is visible and search container is hidden initially
+        navigationContainerView.isHidden = true // Initially hidden until a JSON file is loaded
+        searchContainerView.isHidden = true
+        searchResultsTableView.isHidden = true
+        jsonActionsStackView.isHidden = true
+        
+        // Force layout update to fix any spacing issues
+        view.layoutIfNeeded()
     }
 
     private func setupUI() {
@@ -186,8 +343,19 @@ class ViewController: UIViewController {
         
         // Add JSON-specific controls
         jsonActionsStackView.addArrangedSubview(validateButton)
+        jsonActionsStackView.addArrangedSubview(searchToggleButton)
         jsonActionsStackView.addArrangedSubview(viewModeSegmentedControl)
+        
+        // Setup the raw view toggle
+        setupRawViewToggle()
         view.addSubview(jsonActionsStackView)
+        
+        // Search container views will be set up in setupSearchUI() method
+        
+        // Search UI will be setup in setupSearchUI() method
+        
+        view.addSubview(searchContainerView)
+        view.addSubview(searchResultsTableView)
         
         // Set up navigation container with breadcrumbs
         navigationContainerView.addSubview(jsonPathNavigator)
@@ -200,6 +368,9 @@ class ViewController: UIViewController {
 
         let layoutGuide = view.safeAreaLayoutGuide
 
+        // Create and store a variable for content stack view's top constraint
+        let contentStackTopConstraint = contentStackView.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 16)
+        
         NSLayoutConstraint.activate([
             actionsStackView.topAnchor.constraint(equalTo: layoutGuide.topAnchor, constant: 16),
             actionsStackView.centerXAnchor.constraint(equalTo: layoutGuide.centerXAnchor),
@@ -212,12 +383,24 @@ class ViewController: UIViewController {
             navigationContainerView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
             navigationContainerView.heightAnchor.constraint(equalToConstant: 44),
             
+            // Search container basic position
+            searchContainerView.topAnchor.constraint(equalTo: navigationContainerView.topAnchor),
+            searchContainerView.leadingAnchor.constraint(equalTo: navigationContainerView.leadingAnchor),
+            searchContainerView.trailingAnchor.constraint(equalTo: navigationContainerView.trailingAnchor),
+            
+            // Search results table view
+            searchResultsTableView.topAnchor.constraint(equalTo: searchContainerView.bottomAnchor, constant: 8),
+            searchResultsTableView.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: 16),
+            searchResultsTableView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
+            searchResultsTableView.heightAnchor.constraint(equalToConstant: 200),  // Fixed height
+            
             jsonPathNavigator.topAnchor.constraint(equalTo: navigationContainerView.topAnchor),
             jsonPathNavigator.leadingAnchor.constraint(equalTo: navigationContainerView.leadingAnchor),
             jsonPathNavigator.trailingAnchor.constraint(equalTo: navigationContainerView.trailingAnchor),
             jsonPathNavigator.bottomAnchor.constraint(equalTo: navigationContainerView.bottomAnchor),
             
-            contentStackView.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 16),
+            // Use the stored constraint for content stack view's top anchor
+            contentStackTopConstraint,
             contentStackView.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: 16),
             contentStackView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
             contentStackView.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -16),
@@ -228,7 +411,16 @@ class ViewController: UIViewController {
         // We'll configure the open button menu instead of a direct action
         loadSampleButton.addTarget(self, action: #selector(loadSampleButtonTapped), for: .touchUpInside)
         validateButton.addTarget(self, action: #selector(validateJsonTapped), for: .touchUpInside)
+        searchToggleButton.addTarget(self, action: #selector(searchButtonTapped), for: .touchUpInside)
         viewModeSegmentedControl.addTarget(self, action: #selector(viewModeChanged), for: .valueChanged)
+        
+        // Setup search UI
+        setupSearchUI()
+        
+        // Set up search results table view
+        searchResultsTableView.delegate = self
+        searchResultsTableView.dataSource = self
+        searchResultsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "SearchResultCell")
         
         // Set up navigation callbacks
         jsonMinimap.onMinimapSelection = { [weak self] path in
@@ -244,6 +436,9 @@ class ViewController: UIViewController {
         
         // Set up scroll observation for minimap updates
         fileContentView.delegate = self
+        
+        // Set initial layout based on current size class
+        updateLayoutForCurrentSizeClass()
     }
 
     // Update the recent files menu based on the current recent files list
@@ -442,6 +637,10 @@ class ViewController: UIViewController {
                             // Set the JSON structure for the minimap
                             self.jsonMinimap.setJsonStructure(jsonObject)
                             
+                            // Reset raw view mode when loading new file
+                            self.isRawViewMode = false
+                            self.rawViewToggleButton.setTitle("Raw", for: .normal)
+                            
                             // Display the JSON with syntax highlighting
                             let attributedString = self.jsonHighlighter.highlightJSON(prettyText, font: self.fileContentView.font)
                             self.fileContentView.attributedText = attributedString
@@ -462,6 +661,8 @@ class ViewController: UIViewController {
                     self.jsonActionsStackView.isHidden = true
                     self.navigationContainerView.isHidden = true
                     self.jsonMinimap.isHidden = true
+                    self.searchContainerView.isHidden = true
+                    self.searchResultsTableView.isHidden = true
                     self.currentJsonObject = nil
                 }
             }
@@ -490,6 +691,16 @@ class ViewController: UIViewController {
     
     // JSON syntax highlighting is now handled by JSONHighlighter class
 
+    // MARK: - Tree View Components
+    
+    // Tree view controller
+    internal var treeViewController: JsonTreeViewController!
+    
+    // Tree view control elements
+    internal var treeViewControlsContainer: UIView!
+    internal var expandAllButton: UIButton!
+    internal var collapseAllButton: UIButton!
+    
     // MARK: - Button Actions
     
     @objc private func loadSampleButtonTapped() {
@@ -507,6 +718,115 @@ class ViewController: UIViewController {
     }
     
     // MARK: - JSON Actions
+    
+    // Helper method for raw view extension to add toggle button
+    internal func addRawViewToggleButtonToActions(_ button: UIButton) {
+        jsonActionsStackView.insertArrangedSubview(button, at: 1)
+    }
+    
+    // Helper method to check if current mode is text mode
+    internal func isTextModeActive() -> Bool {
+        return viewModeSegmentedControl.selectedSegmentIndex == 0
+    }
+    
+    // MARK: - Search Actions
+    
+    @objc private func searchButtonTapped() {
+        guard currentJsonObject != nil else { return }
+        
+        // Toggle search UI
+        searchContainerView.isHidden.toggle()
+        navigationContainerView.isHidden = !searchContainerView.isHidden
+        
+        // Hide search results when toggling off search
+        if searchContainerView.isHidden {
+            searchResultsTableView.isHidden = true
+        } else {
+            // Focus on search field when opening search
+            searchTextField.becomeFirstResponder()
+            
+            // Ensure search container is on top in the view hierarchy
+            view.bringSubviewToFront(searchContainerView)
+            view.bringSubviewToFront(searchResultsTableView)
+        }
+        
+        // Force layout update to fix spacing issues
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+        }
+    }
+    
+    @objc internal func closeSearchTapped() {
+        // Hide search UI
+        searchContainerView.isHidden = true
+        searchResultsTableView.isHidden = true
+        navigationContainerView.isHidden = false
+        searchTextField.resignFirstResponder()
+        
+        // Ensure navigation container is visible and on top
+        view.bringSubviewToFront(navigationContainerView)
+        
+        // Force layout update to fix any spacing issues
+        UIView.animate(withDuration: 0.3) {
+            self.view.layoutIfNeeded()
+        }
+    }
+    
+    // Helper method to create a switch-label pair in a horizontal stack view
+    private func createSwitchLabelPair(switchControl: UISwitch, label: UILabel) -> UIStackView {
+        let stackView = UIStackView()
+        stackView.axis = .horizontal
+        stackView.alignment = .center
+        stackView.spacing = 4
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        
+        stackView.addArrangedSubview(switchControl)
+        stackView.addArrangedSubview(label)
+        
+        return stackView
+    }
+    
+    // Update layout based on size class (to handle iPhone vs iPad differently)
+    private func updateLayoutForCurrentSizeClass() {
+        // Delegate to the search UI layout update method
+        updateSearchUILayout(for: traitCollection.horizontalSizeClass)
+    }
+    
+    @objc internal func performSearch() {
+        guard let jsonObject = currentJsonObject, let searchText = searchTextField.text, !searchText.isEmpty else {
+            return
+        }
+        
+        // Dismiss keyboard
+        searchTextField.resignFirstResponder()
+        
+        // Perform search with current options
+        searchResults = jsonSearcher.search(
+            in: jsonObject,
+            for: searchText,
+            searchInKeys: searchKeysSwitch.isOn,
+            searchInValues: searchValuesSwitch.isOn,
+            caseSensitive: caseSensitiveSwitch.isOn
+        )
+        
+        // Show results
+        searchResultsTableView.isHidden = false
+        searchResultsTableView.reloadData()
+        
+        // Ensure search results table view is on top in the view hierarchy
+        view.bringSubviewToFront(searchResultsTableView)
+        
+        // Show a message if no results
+        if searchResults.isEmpty {
+            let label = UILabel()
+            label.text = "No results found"
+            label.textAlignment = .center
+            label.textColor = .secondaryLabel
+            searchResultsTableView.backgroundView = label
+        } else {
+            searchResultsTableView.backgroundView = nil
+        }
+    }
     
     @objc private func validateJsonTapped() {
         guard let jsonObject = currentJsonObject else {
@@ -576,80 +896,11 @@ class ViewController: UIViewController {
         fileContentView.attributedText = attributedString
     }
     
-    @objc private func viewModeChanged(_ sender: UISegmentedControl) {
-        guard let jsonObject = currentJsonObject else {
-            sender.selectedSegmentIndex = 0 // Revert to Text view
-            return
-        }
-        
-        if sender.selectedSegmentIndex == 0 { // Text mode
-            do {
-                let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
-                if let prettyText = String(data: prettyData, encoding: .utf8) {
-                    let attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
-                    fileContentView.attributedText = attributedString
-                }
-            } catch {
-                displayError("Error formatting JSON: \(error.localizedDescription)")
-            }
-        } else { // Tree mode
-            let treeText = generateJsonTreeView(jsonObject)
-            let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
-            let attributedString = NSAttributedString(
-                string: treeText,
-                attributes: [.foregroundColor: UIColor.label, .font: baseFont]
-            )
-            fileContentView.attributedText = attributedString
-        }
-    }
+    // Now defined in ViewController+TreeView.swift extension
     
-    private func generateJsonTreeView(_ json: Any, level: Int = 0, isLastItem: Bool = true, path: String = "$") -> String {
-        let indent = String(repeating: "  ", count: level)
-        let connector = isLastItem ? "└─ " : "├─ "
-        var result = ""
-        
-        if let dict = json as? [String: Any] {
-            result += "\(indent)\(level > 0 ? connector : "")\(path) (Object) {\n"
-            
-            let keys = dict.keys.sorted()
-            for (index, key) in keys.enumerated() {
-                let isLast = index == keys.count - 1
-                let value = dict[key]!
-                let childPath = "\(path).\(key)"
-                result += generateJsonTreeView(value, level: level + 1, isLastItem: isLast, path: key)
-            }
-            
-            result += "\(indent)}\n"
-        } else if let array = json as? [Any] {
-            result += "\(indent)\(level > 0 ? connector : "")\(path) (Array) [\n"
-            
-            for (index, item) in array.enumerated() {
-                let isLast = index == array.count - 1
-                let childPath = "\(path)[\(index)]"
-                result += generateJsonTreeView(item, level: level + 1, isLastItem: isLast, path: "[\(index)]")
-            }
-            
-            result += "\(indent)]\n"
-        } else {
-            var valueStr = ""
-            
-            if let stringValue = json as? String {
-                valueStr = "\"\(stringValue)\""
-            } else if let boolValue = json as? Bool {
-                valueStr = boolValue ? "true" : "false"
-            } else if json is NSNull {
-                valueStr = "null"
-            } else {
-                valueStr = "\(json)"
-            }
-            
-            result += "\(indent)\(level > 0 ? connector : "")\(path): \(valueStr)\n"
-        }
-        
-        return result
-    }
+    // Now handled by JsonTreeViewController
 
-    private func displayError(_ message: String) {
+    internal func displayError(_ message: String) {
         let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
         let attributedString = NSAttributedString(
             string: message,
@@ -736,6 +987,7 @@ private extension ViewController {
                 displayError("Error formatting JSON node: \(error.localizedDescription)")
             }
         } else { // Tree mode
+            // Generate tree view text representation
             let treeText = generateJsonTreeView(currentNode, path: pathComponents.last ?? "$")
             let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
             let attributedString = NSAttributedString(
@@ -791,6 +1043,58 @@ private extension ViewController {
         }
         
         return components
+    }
+}
+
+// MARK: - UITextFieldDelegate for Search
+
+extension ViewController: UITextFieldDelegate {
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        if textField == searchTextField {
+            performSearch()
+            return true
+        }
+        return true
+    }
+}
+
+// MARK: - UITableViewDelegate & UITableViewDataSource for Search Results
+
+extension ViewController: UITableViewDelegate, UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return searchResults.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "SearchResultCell", for: indexPath)
+        
+        // Configure cell with search result
+        let result = searchResults[indexPath.row]
+        
+        // Configure cell appearance
+        var content = cell.defaultContentConfiguration()
+        content.text = result.displayText
+        
+        // Show the path as secondary text
+        content.secondaryText = "Path: \(result.path)"
+        content.secondaryTextProperties.font = UIFont.systemFont(ofSize: 12)
+        content.secondaryTextProperties.color = .secondaryLabel
+        
+        cell.contentConfiguration = content
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        
+        // Get the selected result and navigate to its path
+        let result = searchResults[indexPath.row]
+        navigateToJsonPath(result.path)
+        
+        // Hide search UI after navigation
+        searchContainerView.isHidden = true
+        searchResultsTableView.isHidden = true
+        navigationContainerView.isHidden = false
     }
 }
 
