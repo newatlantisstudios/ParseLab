@@ -21,10 +21,10 @@ class JsonMinimap: UIView {
     var onMinimapSelection: ((String) -> Void)?
     
     // Appearance
-    private let objectColor = UIColor.systemBlue.withAlphaComponent(0.3)
-    private let arrayColor = UIColor.systemGreen.withAlphaComponent(0.3)
-    private let primitiveColor = UIColor.systemGray.withAlphaComponent(0.2)
-    private let viewportColor = UIColor.systemBlue.withAlphaComponent(0.2)
+    private let objectColor = UIColor.systemBlue.withAlphaComponent(0.4)
+    private let arrayColor = UIColor.systemGreen.withAlphaComponent(0.4)
+    private let primitiveColor = UIColor.systemGray.withAlphaComponent(0.3)
+    private let viewportColor = UIColor.systemBlue.withAlphaComponent(0.3)
     private let borderColor = UIColor.systemGray5.cgColor
     
     // MARK: - Initialization
@@ -82,6 +82,9 @@ class JsonMinimap: UIView {
         // Start recursively mapping the JSON structure
         let bounds = CGRect(x: 4, y: 4, width: frame.width - 8, height: frame.height - 8)
         mapJsonNode(json, path: "$", in: bounds)
+        
+        // Debug output to verify mapping
+        print("Mapped \(nodeMap.count) nodes in JSON structure")
     }
     
     private func mapJsonNode(_ node: Any, path: String, in rect: CGRect) {
@@ -94,14 +97,14 @@ class JsonMinimap: UIView {
             let keyCount = dict.keys.count
             if keyCount > 0 {
                 let keys = dict.keys.sorted()
-                let itemHeight = rect.height / CGFloat(keyCount)
+                let itemHeight = max(2.0, rect.height / CGFloat(keyCount)) // Ensure minimum height
                 
                 for (index, key) in keys.enumerated() {
                     let itemRect = CGRect(
-                        x: rect.minX,
+                        x: rect.minX + 4, // Indent child items
                         y: rect.minY + CGFloat(index) * itemHeight,
-                        width: rect.width,
-                        height: itemHeight
+                        width: rect.width - 8, // Make child items narrower
+                        height: itemHeight - 1 // Add small gap between items
                     )
                     
                     let childPath = "\(path).\(key)"
@@ -114,14 +117,14 @@ class JsonMinimap: UIView {
             // For arrays, divide the space vertically among its items
             let itemCount = array.count
             if itemCount > 0 {
-                let itemHeight = rect.height / CGFloat(itemCount)
+                let itemHeight = max(2.0, rect.height / CGFloat(itemCount)) // Ensure minimum height
                 
                 for (index, item) in array.enumerated() {
                     let itemRect = CGRect(
-                        x: rect.minX,
+                        x: rect.minX + 4, // Indent child items
                         y: rect.minY + CGFloat(index) * itemHeight,
-                        width: rect.width,
-                        height: itemHeight
+                        width: rect.width - 8, // Make child items narrower
+                        height: itemHeight - 1 // Add small gap between items
                     )
                     
                     let childPath = "\(path)[\(index)]"
@@ -177,6 +180,11 @@ class JsonMinimap: UIView {
         
         guard let currentNode = node else { return }
         
+        // Skip drawing if rectangle is too small
+        if rect.width < 1 || rect.height < 1 {
+            return
+        }
+        
         // Determine color based on node type
         let fillColor: UIColor
         if currentNode is [String: Any] {
@@ -187,15 +195,18 @@ class JsonMinimap: UIView {
             fillColor = primitiveColor
         }
         
-        // Draw the rectangle
+        // Draw the rectangle with rounded corners for better visual distinction
+        let path = UIBezierPath(roundedRect: rect, cornerRadius: 2)
+        context.addPath(path.cgPath)
         context.setFillColor(fillColor.cgColor)
-        context.fill(rect)
+        context.fillPath()
         
-        // Draw border for objects and arrays
+        // Draw border for objects and arrays with more noticeable borders
         if currentNode is [String: Any] || currentNode is [Any] {
-            context.setStrokeColor(UIColor.systemGray4.cgColor)
+            context.addPath(path.cgPath)
+            context.setStrokeColor(UIColor.systemGray3.cgColor)
             context.setLineWidth(0.5)
-            context.stroke(rect)
+            context.strokePath()
         }
     }
     
@@ -211,17 +222,20 @@ class JsonMinimap: UIView {
         let viewportRect = CGRect(
             x: visibleRect.minX * xRatio,
             y: visibleRect.minY * yRatio,
-            width: visibleRect.width * xRatio,
-            height: visibleRect.height * yRatio
+            width: max(20, visibleRect.width * xRatio), // Ensure minimum width for visibility
+            height: max(20, visibleRect.height * yRatio) // Ensure minimum height for visibility
         )
         
-        // Draw the viewport rectangle
+        // Draw the viewport rectangle with a more visible style
+        let path = UIBezierPath(roundedRect: viewportRect, cornerRadius: 3)
+        context.addPath(path.cgPath)
         context.setFillColor(viewportColor.cgColor)
-        context.fill(viewportRect)
+        context.fillPath()
         
+        context.addPath(path.cgPath)
         context.setStrokeColor(UIColor.systemBlue.cgColor)
-        context.setLineWidth(1.0)
-        context.stroke(viewportRect)
+        context.setLineWidth(1.5)
+        context.strokePath()
     }
     
     // MARK: - Interaction

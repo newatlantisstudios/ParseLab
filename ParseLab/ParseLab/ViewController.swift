@@ -27,6 +27,8 @@ class ViewController: UIViewController {
     internal let jsonMinimap: JsonMinimap = {
         let minimap = JsonMinimap()
         minimap.translatesAutoresizingMaskIntoConstraints = false
+        minimap.backgroundColor = .systemBackground
+        minimap.isHidden = true // Initially hidden until JSON is loaded
         return minimap
     }()
     
@@ -256,6 +258,14 @@ class ViewController: UIViewController {
         return button
     }()
     
+    internal let minimapToggleButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.setTitle("Toggle Minimap", for: .normal)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setImage(UIImage(systemName: "sidebar.right"), for: .normal)
+        return button
+    }()
+    
     private let treeViewButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Tree View", for: .normal)
@@ -391,6 +401,7 @@ class ViewController: UIViewController {
         
         // Add second row JSON-specific controls
         jsonActionsSecondRowStackView.addArrangedSubview(searchToggleButton)
+        jsonActionsSecondRowStackView.addArrangedSubview(minimapToggleButton)
         jsonActionsSecondRowStackView.addArrangedSubview(viewModeSegmentedControl)
         
         // Add the second row stack view to the main view
@@ -472,6 +483,7 @@ class ViewController: UIViewController {
         loadSampleButton.addTarget(self, action: #selector(loadSampleButtonTapped), for: .touchUpInside)
         validateButton.addTarget(self, action: #selector(validateJsonTapped), for: .touchUpInside)
         searchToggleButton.addTarget(self, action: #selector(searchButtonTapped), for: .touchUpInside)
+        minimapToggleButton.addTarget(self, action: #selector(minimapToggleButtonTapped), for: .touchUpInside)
         viewModeSegmentedControl.addTarget(self, action: #selector(viewModeChanged), for: .valueChanged)
         
         // Setup search UI
@@ -705,7 +717,10 @@ class ViewController: UIViewController {
                                 }
                             }
                             self.navigationContainerView.isHidden = false
-                            self.jsonMinimap.isHidden = false
+                            // Only show the minimap if it wasn't manually hidden by the user
+                            if self.minimapToggleButton.title(for: .normal) != "Show Minimap" {
+                                self.jsonMinimap.isHidden = false
+                            }
                             
                             // Reset navigation path to root
                             self.currentPath = ["$"]
@@ -783,6 +798,8 @@ class ViewController: UIViewController {
             self.navigationContainerView.isHidden = true
             self.jsonMinimap.isHidden = true
             self.currentJsonObject = nil
+            // Reset minimap toggle button title when loading non-JSON files
+            self.minimapToggleButton.setTitle("Toggle Minimap", for: .normal)
             self.fileContentView.attributedText = attributedString
         }
     }
@@ -946,6 +963,21 @@ class ViewController: UIViewController {
         } else {
             searchResultsTableView.backgroundView = nil
         }
+    }
+    
+    @objc private func minimapToggleButtonTapped() {
+        // Toggle minimap visibility
+        jsonMinimap.isHidden.toggle()
+        
+        // Update button title based on minimap visibility
+        if jsonMinimap.isHidden {
+            minimapToggleButton.setTitle("Show Minimap", for: .normal)
+        } else {
+            minimapToggleButton.setTitle("Hide Minimap", for: .normal)
+        }
+        
+        // Force layout update
+        view.layoutIfNeeded()
     }
     
     @objc private func validateJsonTapped() {
