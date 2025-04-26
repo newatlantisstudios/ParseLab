@@ -40,6 +40,12 @@ class ViewController: UIViewController {
     // Current navigation path components
     internal var currentPath: [String] = ["$"]
     
+    // Current file URL for saving changes
+    internal var currentFileUrl: URL? = nil
+    
+    // Store original content for cancel operation
+    internal var originalJsonContent: String? = nil
+    
     // Scroll position in text view
     private var textViewContentOffset: CGPoint = .zero
 
@@ -63,8 +69,8 @@ class ViewController: UIViewController {
     internal let jsonActionsStackView: UIStackView = {
         let stackView = UIStackView()
         stackView.axis = .horizontal
-        stackView.distribution = .equalSpacing
-        stackView.spacing = 16
+        stackView.distribution = .fillProportionally
+        stackView.spacing = 12
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.isHidden = true // Initially hidden
         return stackView
@@ -72,6 +78,18 @@ class ViewController: UIViewController {
     
     // Toggle button for raw/formatted view
     internal var rawViewToggleButton: UIButton!
+    
+    // Toggle button for edit mode
+    internal var editToggleButton: UIButton!
+    
+    // Save button for edit mode
+    internal var saveButton: UIButton!
+    
+    // Cancel button for edit mode
+    internal var cancelButton: UIButton!
+    
+    // Track if we're in edit mode
+    internal var isEditMode = false
     
     // Track if we're in raw view mode
     internal var isRawViewMode = false
@@ -216,14 +234,14 @@ class ViewController: UIViewController {
         return button
     }()
     
-    private let validateButton: UIButton = {
+    internal let validateButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Validate JSON", for: .normal)
         button.translatesAutoresizingMaskIntoConstraints = false
         return button
     }()
     
-    private let searchToggleButton: UIButton = {
+    internal let searchToggleButton: UIButton = {
         let button = UIButton(type: .system)
         button.setTitle("Search", for: .normal)
         button.translatesAutoresizingMaskIntoConstraints = false
@@ -248,7 +266,7 @@ class ViewController: UIViewController {
 
     internal let fileContentView: UITextView = { // Renamed from jsonTextView
         let textView = UITextView()
-        textView.isEditable = false
+        textView.isEditable = false // Default to non-editable, will toggle when in edit mode
         textView.font = .monospacedSystemFont(ofSize: 14, weight: .regular) // Keep monospaced for now
         textView.backgroundColor = .systemGray6
         textView.layer.cornerRadius = 8
@@ -328,6 +346,9 @@ class ViewController: UIViewController {
         
         // Set up the Recent Files menu
         updateRecentFilesMenu()
+        
+        // Set up the editing controls
+        setupEditControls()
 
         // Ensure the view extends under the navigation bar and status bar
         edgesForExtendedLayout = .all
@@ -349,6 +370,9 @@ class ViewController: UIViewController {
         // Setup the raw view toggle
         setupRawViewToggle()
         view.addSubview(jsonActionsStackView)
+        
+        // Set minimum width for jsonActionsStackView to prevent truncation
+        jsonActionsStackView.widthAnchor.constraint(greaterThanOrEqualToConstant: view.bounds.width * 0.8).isActive = true
         
         // Search container views will be set up in setupSearchUI() method
         
@@ -562,6 +586,10 @@ class ViewController: UIViewController {
 
         do {
             let data = try Data(contentsOf: url)
+            
+            // Store the current file URL for save operations
+            self.currentFileUrl = url
+            
             displayFileContent(url: url, data: data)
             
             // Determine if the file is JSON based on content and extension
@@ -637,9 +665,18 @@ class ViewController: UIViewController {
                             // Set the JSON structure for the minimap
                             self.jsonMinimap.setJsonStructure(jsonObject)
                             
-                            // Reset raw view mode when loading new file
+                            // Reset view modes when loading new file
                             self.isRawViewMode = false
                             self.rawViewToggleButton.setTitle("Raw", for: .normal)
+                            
+                            // Reset edit mode
+                            self.isEditMode = false
+                            self.editToggleButton.setTitle("Edit", for: .normal)
+                            self.saveButton.isHidden = true
+                            self.cancelButton.isHidden = true
+                            
+                            // Enable edit button (unless it's a sample file)
+                            self.editToggleButton.isEnabled = true
                             
                             // Display the JSON with syntax highlighting
                             let attributedString = self.jsonHighlighter.highlightJSON(prettyText, font: self.fileContentView.font)
@@ -708,7 +745,16 @@ class ViewController: UIViewController {
         if let sampleJsonURL = Bundle.main.url(forResource: "sample", withExtension: "json") {
             do {
                 let data = try Data(contentsOf: sampleJsonURL)
+                
+                // Note: Sample file URL is read-only (in bundle)
+                // We'll set it but inform user they can't save changes to it
+                self.currentFileUrl = sampleJsonURL
+                
                 displayFileContent(url: sampleJsonURL, data: data)
+                
+                // Disable edit button for sample file
+                self.editToggleButton.isEnabled = false
+                self.showToast(message: "Sample file is read-only")
             } catch {
                 displayError("Error loading sample JSON: \(error.localizedDescription)")
             }
@@ -1098,7 +1144,7 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     }
 }
 
-// MARK: - UITextViewDelegate for Minimap Updates
+// MARK: - UITextViewDelegate for Minimap Updates and Editing
 
 extension ViewController: UITextViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
@@ -1108,6 +1154,19 @@ extension ViewController: UITextViewDelegate {
             // Update minimap viewport
             updateMinimapViewport()
         }
+    }
+    
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        // When editing begins, make sure edit mode is enabled
+        if !isEditMode && textView === fileContentView {
+            isEditMode = true
+            updateUIForEditMode()
+        }
+    }
+    
+    func textViewDidChange(_ textView: UITextView) {
+        // Real-time validation could be added here
+        // For now, we'll just update the text view
     }
 }
 
