@@ -16,6 +16,13 @@ class JSONHighlighter {
             attributes: [.foregroundColor: SyntaxColors.plainText, .font: font ?? defaultFont]
         )
         
+        // Set paragraph style for proper wrapping
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineBreakMode = .byCharWrapping
+        paragraphStyle.headIndent = 8
+        paragraphStyle.firstLineHeadIndent = 8
+        attributedString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: jsonString.count))
+        
         // Define regular expressions for JSON elements
         let patterns: [(pattern: String, color: UIColor)] = [
             // Match string keys (with quotes and colon)

@@ -24,14 +24,23 @@ extension ViewController {
         treeViewController.didMove(toParent: self)
         treeViewController.view.isHidden = true
         
-        // Ensure tree view is properly sized
-        NSLayoutConstraint.activate([
-            treeViewController.view.heightAnchor.constraint(equalTo: contentStackView.heightAnchor),
-            treeViewController.view.widthAnchor.constraint(equalTo: fileContentView.widthAnchor)
-        ])
+        // Ensure tree view is properly sized - wrap in async block to make sure views are in hierarchy
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // Only add constraints if both views are in the view hierarchy
+            if self.contentStackView.superview != nil && self.fileContentView.superview != nil {
+                NSLayoutConstraint.activate([
+                    self.treeViewController.view.heightAnchor.constraint(equalTo: self.contentStackView.heightAnchor),
+                    self.treeViewController.view.widthAnchor.constraint(equalTo: self.fileContentView.widthAnchor)
+                ])
+            }
+        }
         
-        // Create tree view control buttons
-        setupTreeViewControls()
+        // Create tree view control buttons - but do it after a delay to ensure the view hierarchy is set up
+        DispatchQueue.main.async { [weak self] in
+            self?.setupTreeViewControls()
+        }
     }
     
     // Setup control buttons for tree view (expand all, collapse all)
@@ -39,17 +48,20 @@ extension ViewController {
         // Create controls container
         treeViewControlsContainer = UIView()
         treeViewControlsContainer.translatesAutoresizingMaskIntoConstraints = false
-        treeViewControlsContainer.backgroundColor = .systemBackground
-        treeViewControlsContainer.layer.cornerRadius = 8
-        treeViewControlsContainer.layer.borderWidth = 0.5
-        treeViewControlsContainer.layer.borderColor = UIColor.systemGray4.cgColor
+        treeViewControlsContainer.backgroundColor = DesignSystem.Colors.background
+        treeViewControlsContainer.layer.cornerRadius = 10
+        treeViewControlsContainer.layer.shadowColor = UIColor.black.cgColor
+        treeViewControlsContainer.layer.shadowOffset = CGSize(width: 0, height: 2)
+        treeViewControlsContainer.layer.shadowRadius = 3
+        treeViewControlsContainer.layer.shadowOpacity = 0.2
         treeViewControlsContainer.isHidden = true
         
         // Create stack view for tree controls
         let treeControlsStack = UIStackView()
-        treeControlsStack.axis = .horizontal
+        treeControlsStack.axis = .vertical // Change to vertical layout
         treeControlsStack.distribution = .fillEqually
         treeControlsStack.spacing = 8
+        treeControlsStack.alignment = .fill // Ensure buttons fill the width
         treeControlsStack.translatesAutoresizingMaskIntoConstraints = false
         
         // Expand all button
@@ -57,6 +69,14 @@ extension ViewController {
         expandAllButton.setTitle("Expand All", for: .normal)
         expandAllButton.setImage(UIImage(systemName: "list.bullet.indent"), for: .normal)
         expandAllButton.translatesAutoresizingMaskIntoConstraints = false
+        expandAllButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        expandAllButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 6, bottom: 0, right: 0)
+        expandAllButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -2, bottom: 0, right: 0)
+        expandAllButton.titleLabel?.lineBreakMode = .byClipping
+        expandAllButton.titleLabel?.adjustsFontSizeToFitWidth = false
+        expandAllButton.layer.cornerRadius = 6
+        expandAllButton.backgroundColor = DesignSystem.Colors.backgroundTertiary
+        expandAllButton.tintColor = DesignSystem.Colors.primary
         expandAllButton.addTarget(self, action: #selector(expandAllNodes), for: .touchUpInside)
         
         // Collapse all button
@@ -64,6 +84,14 @@ extension ViewController {
         collapseAllButton.setTitle("Collapse All", for: .normal)
         collapseAllButton.setImage(UIImage(systemName: "list.bullet.outdent"), for: .normal)
         collapseAllButton.translatesAutoresizingMaskIntoConstraints = false
+        collapseAllButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        collapseAllButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 6, bottom: 0, right: 0)
+        collapseAllButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -2, bottom: 0, right: 0)
+        collapseAllButton.titleLabel?.lineBreakMode = .byClipping
+        collapseAllButton.titleLabel?.adjustsFontSizeToFitWidth = false
+        collapseAllButton.layer.cornerRadius = 6
+        collapseAllButton.backgroundColor = DesignSystem.Colors.backgroundTertiary
+        collapseAllButton.tintColor = DesignSystem.Colors.primary
         collapseAllButton.addTarget(self, action: #selector(collapseAllNodes), for: .touchUpInside)
         
         // Add buttons to stack
@@ -76,18 +104,30 @@ extension ViewController {
         // Add container to view
         view.addSubview(treeViewControlsContainer)
         
-        // Set up constraints
+        // Set up constraints for the stack inside the container
         NSLayoutConstraint.activate([
-            treeControlsStack.topAnchor.constraint(equalTo: treeViewControlsContainer.topAnchor, constant: 8),
-            treeControlsStack.leadingAnchor.constraint(equalTo: treeViewControlsContainer.leadingAnchor, constant: 16),
-            treeControlsStack.trailingAnchor.constraint(equalTo: treeViewControlsContainer.trailingAnchor, constant: -16),
-            treeControlsStack.bottomAnchor.constraint(equalTo: treeViewControlsContainer.bottomAnchor, constant: -8),
-            
-            treeViewControlsContainer.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 8),
-            treeViewControlsContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            treeViewControlsContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            treeViewControlsContainer.heightAnchor.constraint(equalToConstant: 44)
+            treeControlsStack.topAnchor.constraint(equalTo: treeViewControlsContainer.topAnchor, constant: 10),
+            treeControlsStack.leadingAnchor.constraint(equalTo: treeViewControlsContainer.leadingAnchor, constant: 10),
+            treeControlsStack.trailingAnchor.constraint(equalTo: treeViewControlsContainer.trailingAnchor, constant: -10),
+            treeControlsStack.bottomAnchor.constraint(equalTo: treeViewControlsContainer.bottomAnchor, constant: -10)
         ])
+        
+        // Set fixed height for buttons to ensure consistent sizing
+        expandAllButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        collapseAllButton.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        
+        // Set up constraints for the container relative to the view
+        // Position controls at the bottom of the screen, aligned to the trailing edge
+        NSLayoutConstraint.activate([
+            treeViewControlsContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            treeViewControlsContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
+            treeViewControlsContainer.widthAnchor.constraint(equalToConstant: 180),
+            treeViewControlsContainer.heightAnchor.constraint(equalToConstant: 94) // Increased height for vertical layout
+        ])
+        
+        // Set content hugging and compression resistance to ensure proper sizing
+        treeViewControlsContainer.setContentHuggingPriority(.required, for: .horizontal)
+        treeViewControlsContainer.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
     
     // Switch between text view and tree view
@@ -122,7 +162,8 @@ extension ViewController {
         }
     }
     
-    // Handle view mode segmented control changes
+    // Handle view mode segmented control changes - Marked as deprecated to avoid conflict
+    @available(*, deprecated, message: "Use handleViewModeChanged instead")
     @objc internal func viewModeChanged(_ sender: UISegmentedControl) {
         guard currentJsonObject != nil else {
             sender.selectedSegmentIndex = 0 // Revert to Text view
@@ -203,7 +244,7 @@ extension ViewController: JsonTreeViewDelegate {
                         fileContentView.attributedText = attributedString
                     }
                 } catch {
-                    displayError("Error formatting JSON node: \(error.localizedDescription)")
+                    showErrorMessage("Error formatting JSON node: \(error.localizedDescription)")
                 }
             }
         }

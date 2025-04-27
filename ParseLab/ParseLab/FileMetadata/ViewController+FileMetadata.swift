@@ -10,6 +10,49 @@ import UIKit
 // Extension to handle file metadata display
 extension ViewController {
     
+    // Create a dedicated row for buttons including the info button
+    private func createInfoButtonRow() -> UIView {
+        // Create container
+        let buttonRowContainer = UIView()
+        buttonRowContainer.translatesAutoresizingMaskIntoConstraints = false
+        buttonRowContainer.backgroundColor = .clear
+        
+        // Create stack view for buttons
+        let buttonStack = UIStackView()
+        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        buttonStack.axis = .horizontal
+        buttonStack.distribution = .equalSpacing
+        buttonStack.alignment = .center
+        buttonStack.spacing = 12
+        
+        // Create our custom info view
+        let infoView = InfoButtonView(size: 36)
+        infoView.translatesAutoresizingMaskIntoConstraints = false
+        infoView.onTap = { [weak self] in
+            self?.toggleFileMetadataView()
+        }
+        
+        // Store reference
+        self.fileInfoButton = infoView
+        
+        // Add buttons to stack
+        buttonStack.addArrangedSubview(infoView)
+        
+        // Add stack to container
+        buttonRowContainer.addSubview(buttonStack)
+        
+        // Set constraints
+        NSLayoutConstraint.activate([
+            buttonStack.centerXAnchor.constraint(equalTo: buttonRowContainer.centerXAnchor),
+            buttonStack.centerYAnchor.constraint(equalTo: buttonRowContainer.centerYAnchor),
+            buttonStack.topAnchor.constraint(equalTo: buttonRowContainer.topAnchor),
+            buttonStack.bottomAnchor.constraint(equalTo: buttonRowContainer.bottomAnchor),
+            buttonRowContainer.heightAnchor.constraint(equalToConstant: 44)
+        ])
+        
+        return buttonRowContainer
+    }
+    
     // Set up the file metadata view
     func setupFileMetadataView() {
         // Create the file metadata view
@@ -51,8 +94,14 @@ extension ViewController {
         }
         
         // Create constraint to adjust content stack view position when metadata is shown
-        metadataToContentConstraint = contentStackView.topAnchor.constraint(equalTo: fileMetadataView.bottomAnchor, constant: 16)
-        metadataToContentConstraint.priority = .defaultHigh
+        // Only if both views are in the hierarchy
+        if fileMetadataView.superview == view && contentStackView.superview == view {
+            metadataToContentConstraint = contentStackView.topAnchor.constraint(equalTo: fileMetadataView.bottomAnchor, constant: 16)
+            metadataToContentConstraint.priority = .defaultHigh
+        } else {
+            // Create a placeholder constraint that will be replaced later
+            metadataToContentConstraint = NSLayoutConstraint()
+        }
         
         // Add constraints for metadata view - ensure views are in the hierarchy first
         if navigationContainerView.superview == view {
@@ -71,17 +120,39 @@ extension ViewController {
             ])
         }
         
-        // Create file info button
-        fileInfoButton = UIButton(type: .system)
-        fileInfoButton.setTitle("File Info", for: .normal)
-        fileInfoButton.setImage(UIImage(systemName: "info.circle"), for: .normal)
-        fileInfoButton.translatesAutoresizingMaskIntoConstraints = false
+        // We now use the info button in the toolbar instead of a separate row
+        // let infoButtonRow = createInfoButtonRow()
+        // view.addSubview(infoButtonRow)
         
-        // Add to actions stack view
-        self.addFileInfoButtonToActions(fileInfoButton)
+        // // Add constraints for the button row, checking if navigationContainerView is in the hierarchy
+        // if navigationContainerView.superview == view {
+        //     NSLayoutConstraint.activate([
+        //         infoButtonRow.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 8),
+        //         infoButtonRow.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+        //         infoButtonRow.heightAnchor.constraint(equalToConstant: 44)
+        //     ])
+        // } else {
+        //     // Fallback if navigation container view is not in hierarchy
+        //     NSLayoutConstraint.activate([
+        //         infoButtonRow.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 120),
+        //         infoButtonRow.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+        //         infoButtonRow.heightAnchor.constraint(equalToConstant: 44)
+        //     ])
+        // }
         
-        // Add target action
-        fileInfoButton.addTarget(self, action: #selector(toggleFileMetadataView), for: .touchUpInside)
+        // Update content stack constraint to use navigationContainerView instead of info button row
+        if contentStackView.superview == view {
+            if let originalConstraint = originalContentStackTopConstraint {
+                originalConstraint.isActive = false
+            }
+            
+            if navigationContainerView.superview == view {
+                // New constraint from content to navigation container
+                let contentTopConstraint = contentStackView.topAnchor.constraint(equalTo: navigationContainerView.bottomAnchor, constant: 12)
+                contentTopConstraint.isActive = true
+                originalContentStackTopConstraint = contentTopConstraint
+            }
+        }
     }
     
     // Toggle the file metadata view visibility
@@ -99,7 +170,14 @@ extension ViewController {
             // Bring file metadata view to front
             view.bringSubviewToFront(fileMetadataView)
             fileMetadataView.isHidden = false
-            fileInfoButton.setTitle("Hide Info", for: .normal)
+            
+            // Update button state
+            if let infoView = fileInfoButton as? InfoButtonView {
+                infoView.setActive(true)
+            } else {
+                // Fallback for other button types
+                fileInfoButton.tintColor = DesignSystem.Colors.primary
+            }
             
             // Get file metadata from the manager
             if let metadata = FileMetadataManager.shared.getMetadata(for: fileUrl) {
@@ -147,6 +225,11 @@ extension ViewController {
             
             // Make sure both views are in the view hierarchy before activating the constraint
             if fileMetadataView.superview == view && contentStackView.superview == view {
+                // If metadataToContentConstraint is a placeholder, create a proper one now
+                if metadataToContentConstraint.firstAttribute == .notAnAttribute {
+                    metadataToContentConstraint = contentStackView.topAnchor.constraint(equalTo: fileMetadataView.bottomAnchor, constant: 16)
+                    metadataToContentConstraint.priority = .defaultHigh
+                }
                 metadataToContentConstraint.isActive = true
             }
             
@@ -157,14 +240,21 @@ extension ViewController {
         } else {
             // Hide the metadata view
             fileMetadataView.isHidden = true
-            fileInfoButton.setTitle("File Info", for: .normal)
+            
+            // Reset button state
+            if let infoView = fileInfoButton as? InfoButtonView {
+                infoView.setActive(false)
+            } else {
+                // Fallback for other button types
+                fileInfoButton.tintColor = .systemBlue
+            }
             
             // Deactivate metadata constraint and reactivate original content stack constraint
-            if metadataToContentConstraint.isActive {
+            if metadataToContentConstraint.firstAttribute != .notAnAttribute && metadataToContentConstraint.isActive {
                 metadataToContentConstraint.isActive = false
             }
             
-            if let originalConstraint = originalContentStackTopConstraint {
+            if let originalConstraint = originalContentStackTopConstraint, contentStackView.superview == view {
                 originalConstraint.isActive = true
             }
             

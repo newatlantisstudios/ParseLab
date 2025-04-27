@@ -34,7 +34,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             navigationController.navigationBar.standardAppearance = appearance
             navigationController.navigationBar.scrollEdgeAppearance = appearance
             
-            window.rootViewController = navigationController
+            // Use the view controller directly without a navigation controller to save space
+            window.rootViewController = viewController
             window.backgroundColor = .systemBackground
             windowSceneDelegate.window = window
             window.makeKeyAndVisible()
@@ -90,8 +91,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         
         // Pass the URL to the ViewController
-        if let navigationController = window?.rootViewController as? UINavigationController,
-           let viewController = navigationController.viewControllers.first as? ViewController {
+        if let viewController = window?.rootViewController as? ViewController {
             viewController.handleFileUrl(url)
         } else {
             print("Error: Could not find ViewController to handle the file URL.")

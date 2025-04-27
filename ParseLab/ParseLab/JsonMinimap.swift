@@ -52,6 +52,11 @@ class JsonMinimap: UIView {
     
     // MARK: - Public Methods
     
+    // Set the JSON structure to visualize (alias for setJsonStructure)
+    func setJson(_ json: Any) {
+        setJsonStructure(json)
+    }
+    
     // Set the JSON structure to visualize
     func setJsonStructure(_ json: Any) {
         jsonStructure = json

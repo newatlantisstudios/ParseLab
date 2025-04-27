@@ -29,7 +29,7 @@ extension ViewController {
     // Handle schema validation button tap
     @objc internal func schemaValidationTapped() {
         guard let jsonObject = currentJsonObject, isTextModeActive() else {
-            displayError("Schema validation requires a valid JSON document in text mode")
+            self.showToast(message: "Schema validation requires a valid JSON document in text mode", type: .error)
             return
         }
         
@@ -46,7 +46,7 @@ extension ViewController {
                 present(navController, animated: true)
             }
         } catch {
-            displayError("Error preparing JSON for schema validation: \(error.localizedDescription)")
+            self.showToast(message: "Error preparing JSON for schema validation: \(error.localizedDescription)", type: .error)
         }
     }
 }

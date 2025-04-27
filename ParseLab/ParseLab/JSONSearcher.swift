@@ -35,17 +35,17 @@ class JSONSearcher {
     
     /// Search for a string within JSON keys and values
     /// - Parameters:
-    ///   - json: The JSON object to search in
+    ///   - jsonObject: The JSON object to search in
     ///   - searchText: The text to search for
-    ///   - searchInKeys: Whether to search in keys
-    ///   - searchInValues: Whether to search in values
+    ///   - searchKeys: Whether to search in keys
+    ///   - searchValues: Whether to search in values
     ///   - caseSensitive: Whether the search should be case sensitive
     /// - Returns: Array of search results
     func search(
-        in json: Any,
-        for searchText: String,
-        searchInKeys: Bool = true,
-        searchInValues: Bool = true,
+        jsonObject: Any,
+        searchText: String,
+        searchKeys: Bool = true,
+        searchValues: Bool = true,
         caseSensitive: Bool = false
     ) -> [JSONSearchResult] {
         let trimmedSearchText = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -55,10 +55,10 @@ class JSONSearcher {
         
         // Start recursive search from root
         searchRecursively(
-            in: json,
+            in: jsonObject,
             for: trimmedSearchText,
-            searchInKeys: searchInKeys,
-            searchInValues: searchInValues,
+            searchInKeys: searchKeys,
+            searchInValues: searchValues,
             caseSensitive: caseSensitive,
             currentPath: "$",
             keyPath: ["$"],
