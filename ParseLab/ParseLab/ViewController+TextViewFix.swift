@@ -73,39 +73,28 @@ extension ViewController {
             fileContentView.removeFromSuperview()
         }
         
-        // Restore the content
-        if let attributedText = currentAttributedText {
-            boundedTextView.attributedText = attributedText
-        } else if let text = currentText {
-            boundedTextView.text = text
-        }
-        
         // Apply custom styling with visible border
         boundedTextView.applyCustomCodeStyle()
         
-        // Store a reference to the bounded text view for future use
-        objc_setAssociatedObject(self, &AssociatedKeys.boundedTextViewKey, boundedTextView, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
-        
-        // Update the current JSON content if available
-        if let jsonObject = currentJsonObject {
-            do {
-                let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
-                if let jsonText = String(data: jsonData, encoding: .utf8) {
-                    boundedTextView.setJSONText(jsonText, highlighter: jsonHighlighter)
-                }
-            } catch {
-                print("Error formatting JSON: \(error.localizedDescription)")
-            }
+        // Restore the content AFTER replacement and styling
+        print("[DEBUG] replaceWithBoundedTextView: Attempting to restore content.")
+        if let attributedText = currentAttributedText, attributedText.length > 0 {
+            boundedTextView.attributedText = attributedText
+            print("[DEBUG] replaceWithBoundedTextView: Restored attributed text (length: \(attributedText.length)).")
+        } else if let text = currentText, !text.isEmpty {
+            boundedTextView.text = text
+            print("[DEBUG] replaceWithBoundedTextView: Restored plain text (length: \(text.count)).")
+        } else {
+            print("[DEBUG] replaceWithBoundedTextView: No text content found to restore (attributed length: \(currentAttributedText?.length ?? 0), plain length: \(currentText?.count ?? 0)).")
         }
+        
+        // Force layout after setting content
+        print("[DEBUG] replaceWithBoundedTextView: Forcing layout after restoring content.")
+        boundedTextView.setNeedsLayout()
+        boundedTextView.layoutIfNeeded()
+        
+        // --- UPDATE THE VIEW CONTROLLER'S REFERENCE --- 
+        print("[DEBUG] replaceWithBoundedTextView: Updating self.fileContentView reference.")
+        self.fileContentView = boundedTextView // Update the main property
     }
-    
-    /// Get our custom bounded text view if it exists
-    var boundedTextView: BoundedTextView? {
-        return objc_getAssociatedObject(self, &AssociatedKeys.boundedTextViewKey) as? BoundedTextView
-    }
-}
-
-// Keys for associated objects
-private struct AssociatedKeys {
-    static var boundedTextViewKey = "boundedTextViewKey"
 }

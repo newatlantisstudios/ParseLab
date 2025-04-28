@@ -28,10 +28,14 @@ class ViewController: UIViewController {
     // View mode state
     internal var isRawViewMode = false
     internal var isEditMode = false
+    internal var isTreeViewVisible: Bool = false
     
     // Search results
     internal var searchResults: [JSONSearchResult] = []
     internal var fileMetadataVisible: Bool = false
+    
+    // Add this property to track minimap toggle state
+    var isMinimapVisible: Bool = false
     
     // MARK: - UI Elements
     
@@ -53,11 +57,10 @@ class ViewController: UIViewController {
     internal var viewModeSegmentedControl: UISegmentedControl
     internal var textModeButton: UIButton!
     internal var treeModeButton: UIButton!
-    internal let fileContentView: EditableJsonTextView
+    internal var fileContentView: UITextView
     internal let contentStackView: UIStackView
     
     // JSON Path Navigation
-    internal let jsonMinimap: JsonMinimap
     internal let jsonPathNavigator: JsonPathNavigator
     internal var navigationContainerView: UIView
     
@@ -91,9 +94,11 @@ class ViewController: UIViewController {
     
     // Constraints storage
     internal var fileContentViewConstraints: [NSLayoutConstraint] = []
+    internal var minimapWidthConstraint: NSLayoutConstraint?
     
     // Tree View
     internal var treeViewController: JsonTreeViewController!
+    internal var treeViewContainer: UIView! // New container view
     internal var treeViewControlsContainer: UIView!
     internal var expandAllButton: UIButton!
     internal var collapseAllButton: UIButton!
@@ -113,14 +118,10 @@ class ViewController: UIViewController {
         // We'll set up the touch delegate after super.init
         
         contentStackView = UIStackView()
-        contentStackView.axis = .horizontal
+        contentStackView.axis = .vertical
         contentStackView.distribution = .fill
         contentStackView.spacing = 8
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        jsonMinimap = JsonMinimap()
-        jsonMinimap.translatesAutoresizingMaskIntoConstraints = false
-        jsonMinimap.isHidden = true
         
         jsonPathNavigator = JsonPathNavigator()
         jsonPathNavigator.translatesAutoresizingMaskIntoConstraints = false
@@ -177,7 +178,7 @@ class ViewController: UIViewController {
         super.init(nibName: nibNameOrNil, bundle: nibBundleOrNil)
         
         // Set up touch delegate now that super.init has been called
-        fileContentView.touchDelegate = self
+        (fileContentView as? EditableJsonTextView)?.touchDelegate = self
     }
     
     required init?(coder: NSCoder) {
@@ -193,14 +194,10 @@ class ViewController: UIViewController {
         // We'll set up the touch delegate after super.init
         
         contentStackView = UIStackView()
-        contentStackView.axis = .horizontal
+        contentStackView.axis = .vertical
         contentStackView.distribution = .fill
         contentStackView.spacing = 8
         contentStackView.translatesAutoresizingMaskIntoConstraints = false
-        
-        jsonMinimap = JsonMinimap()
-        jsonMinimap.translatesAutoresizingMaskIntoConstraints = false
-        jsonMinimap.isHidden = true
         
         jsonPathNavigator = JsonPathNavigator()
         jsonPathNavigator.translatesAutoresizingMaskIntoConstraints = false
@@ -257,7 +254,7 @@ class ViewController: UIViewController {
         super.init(coder: coder)
         
         // Set up touch delegate now that super.init has been called
-        fileContentView.touchDelegate = self
+        (fileContentView as? EditableJsonTextView)?.touchDelegate = self
     }
 
     // MARK: - Lifecycle Methods
@@ -326,6 +323,10 @@ class ViewController: UIViewController {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                  print("[LOG] ViewController: viewDidLoad - Dispatch After - replaceWithBoundedTextView START")
                 self?.replaceWithBoundedTextView()
+                // After replacement, set hugging/resistance priorities
+                self?.fileContentView.setContentHuggingPriority(.required, for: .vertical)
+                self?.fileContentView.setContentCompressionResistancePriority(.required, for: .vertical)
+                print("[DEBUG] viewDidLoad: Set vertical hugging/resistance for fileContentView")
                  print("[LOG] ViewController: viewDidLoad - Dispatch After - replaceWithBoundedTextView END")
             }
             print("[LOG] ViewController: viewDidLoad - Dispatch END - initial UI setup")
@@ -448,7 +449,7 @@ class ViewController: UIViewController {
             // self.view.fixAllConstraintIssues() // DISABLED: Causes toolbar layout issues
             
             // Instead of manually setting visibility, call the central update function
-            print("[LOG] ViewController: viewDidAppear - Dispatch - Updating UI visibility")
+            print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from ViewController.swift (viewDidAppear), isLoaded: \(self.currentJsonObject != nil)")
             self.updateUIVisibilityForJsonLoaded(self.currentJsonObject != nil)
             
             // Explicitly ensure mainToolbar is always visible and frontmost
@@ -564,7 +565,6 @@ class ViewController: UIViewController {
         
         // Set up content stack view with text view and minimap
         contentStackView.addArrangedSubview(fileContentView)
-        contentStackView.addArrangedSubview(jsonMinimap)
         view.addSubview(contentStackView)
 
         let layoutGuide = view.safeAreaLayoutGuide
@@ -630,7 +630,8 @@ class ViewController: UIViewController {
             contentStackView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -16),
             contentStackView.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -16),
             
-            jsonMinimap.widthAnchor.constraint(equalToConstant: 100)  // Increased width for better visibility
+            // REMOVED: Explicit width constraint for minimap
+            // jsonMinimap.widthAnchor.constraint(equalToConstant: 100)  // Increased width for better visibility
         ])
 
         // Setup button targets
@@ -645,10 +646,6 @@ class ViewController: UIViewController {
         searchResultsTableView.register(UITableViewCell.self, forCellReuseIdentifier: "SearchResultCell")
         
         // Set up navigation callbacks
-        jsonMinimap.onMinimapSelection = { [weak self] path in
-            self?.navigateToJsonPath(path)
-        }
-        
         jsonPathNavigator.onPathSelected = { [weak self] index in
             guard let self = self, index < self.currentPath.count else { return }
             // Truncate the path to the selected index
@@ -668,7 +665,7 @@ class ViewController: UIViewController {
         fileContentView.delegate = self
         
         // Set initial layout based on current size class
-        updateLayoutForCurrentSizeClass()
+        updateLayoutForSizeClass()
     }
 
     // MARK: - Search Button Actions
@@ -686,8 +683,6 @@ extension ViewController: UITextViewDelegate {
         if scrollView === fileContentView {
             // Store current offset
             textViewContentOffset = scrollView.contentOffset
-            // Update minimap viewport
-            updateMinimapViewport()
         }
     }
     

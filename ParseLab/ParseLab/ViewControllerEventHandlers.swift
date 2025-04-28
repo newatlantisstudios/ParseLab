@@ -4,22 +4,6 @@ import ObjectiveC
 // Extension with disambiguation for event handlers
 extension ViewController {
     
-    // Toggle the minimap visibility
-    @objc func handleMinimapToggleButtonTapped() {
-        jsonMinimap.isHidden.toggle()
-        
-        // Update button appearance based on state
-        if let button = minimapToggleButton as? ToolbarButton {
-            if jsonMinimap.isHidden {
-                button.backgroundColor = DesignSystem.Colors.backgroundTertiary
-                button.tintColor = DesignSystem.Colors.primary
-            } else {
-                button.backgroundColor = DesignSystem.Colors.primary.withAlphaComponent(0.2)
-                button.tintColor = DesignSystem.Colors.primary
-            }
-        }
-    }
-    
     // Public implementation for search button functionality
     @objc func handleSearchButtonTapped() {
         guard currentJsonObject != nil else {
@@ -250,8 +234,8 @@ extension ViewController {
         let navItem = UINavigationItem(title: "Search Results (\(searchResults.count))")
         let closeButton = UIBarButtonItem(barButtonSystemItem: .done, target: nil, action: nil)
         closeButton.tintColor = DesignSystem.Colors.primary
-        closeButton.action = #selector(UIViewController.dismiss(animated:completion:))
-        closeButton.target = resultsVC
+        closeButton.action = #selector(dismissSearchResults(_:))
+        closeButton.target = self
         navItem.rightBarButtonItem = closeButton
         navBar.items = [navItem]
         
@@ -271,6 +255,11 @@ extension ViewController {
         
         // Present results view controller
         present(resultsVC, animated: true)
+    }
+    
+    // Add this method to handle dismissing the resultsVC
+    @objc func dismissSearchResults(_ sender: UIBarButtonItem) {
+        self.dismiss(animated: true, completion: nil)
     }
     
     // Data source for search results table view
@@ -319,7 +308,9 @@ extension ViewController {
     
     // Handle raw/formatted view toggle
     @objc func handleRawViewToggleButtonTapped() {
-        // ... (existing code) ...
+        print("[DEBUG] handleRawViewToggleButtonTapped: forwarding to toggleRawView")
+        // Delegate to the RawView extension
+        self.toggleRawView()
     }
     
     // Handle view mode segmented control changes
@@ -329,17 +320,121 @@ extension ViewController {
     
     // Implement the validateJsonTapped method
     @objc func validateJsonTapped() {
-        // ... (existing code) ...
+        print("[DEBUG] validateJsonTapped entered")
+        guard let jsonObject = currentJsonObject else {
+            print("[DEBUG] validateJsonTapped: currentJsonObject is nil")
+            showErrorMessage("No valid JSON loaded")
+            return
+        }
+        print("[DEBUG] validateJsonTapped: currentJsonObject is valid")
+
+        // Count elements in the JSON structure
+        var objectCount = 0
+        var arrayCount = 0
+        var stringCount = 0
+        var numberCount = 0
+        var boolCount = 0
+        var nullCount = 0
+        var maxDepth = 0
+        
+        func analyzeJson(_ json: Any, depth: Int = 0) {
+            maxDepth = max(maxDepth, depth)
+            
+            if let dict = json as? [String: Any] {
+                objectCount += 1
+                for (_, value) in dict {
+                    analyzeJson(value, depth: depth + 1)
+                }
+            } else if let array = json as? [Any] {
+                arrayCount += 1
+                for item in array {
+                    analyzeJson(item, depth: depth + 1)
+                }
+            } else if json is String {
+                stringCount += 1
+            } else if json is NSNumber {
+                if CFGetTypeID(json as CFTypeRef) == CFBooleanGetTypeID() {
+                    boolCount += 1
+                } else {
+                    numberCount += 1
+                }
+            } else if json is NSNull {
+                nullCount += 1
+            }
+        }
+        
+        analyzeJson(jsonObject)
+        
+        let stats = """
+        JSON Validation Results:
+        • Structure is valid JSON
+        • Max depth: \(maxDepth)
+        
+        Elements:
+        • Objects: \(objectCount)
+        • Arrays: \(arrayCount)
+        • Strings: \(stringCount)
+        • Numbers: \(numberCount)
+        • Booleans: \(boolCount)
+        • Null values: \(nullCount)
+        
+        Total elements: \(objectCount + arrayCount + stringCount + numberCount + boolCount + nullCount)
+        """
+        print("[DEBUG] validateJsonTapped: Generated stats:\n\(stats)")
+
+        let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
+        let attributedString = NSAttributedString(
+            string: stats,
+            attributes: [.foregroundColor: UIColor.label, .font: baseFont]
+        )
+        
+        // Ensure UI update happens on the main thread
+        DispatchQueue.main.async {
+            print("[DEBUG] validateJsonTapped: Updating fileContentView.isHidden = \(self.fileContentView.isHidden)")
+            self.fileContentView.attributedText = attributedString
+            print("[DEBUG] validateJsonTapped: fileContentView updated. New text: \(self.fileContentView.text ?? "NIL")")
+            
+            // Show success toast
+            self.showToast(message: "JSON is valid", type: .success)
+        }
     }
     
     // Handle button mode changes for custom button segment
     @objc func buttonModeChanged(_ sender: UIButton) {
-        // ... (existing code) ...
+        guard currentJsonObject != nil else {
+            showToast(message: "Please load a JSON file first", type: .warning)
+            return
+        }
+
+        let selectedTag = sender.tag
+        let showTreeView = (selectedTag == 1) // 1 = Tree, 0 = Text
+
+        // Update button appearances
+        updateModeButtonsUI(selectedMode: selectedTag)
+
+        // Switch the view
+        if showTreeView {
+            switchToTreeView(animated: true)
+        } else {
+            switchToTextView(animated: true)
+            updateJsonDisplayFormat()
+        }
+        // (Raw toggle remains visible in both text and tree modes)
     }
     
     // Update the UI state of our custom mode buttons
     func updateModeButtonsUI(selectedMode: Int) {
-        // ... (existing code) ...
+        if selectedMode == 0 { // Text mode selected
+            textModeButton?.backgroundColor = DesignSystem.Colors.primary
+            textModeButton?.tintColor = .white
+            treeModeButton?.backgroundColor = .clear
+            treeModeButton?.tintColor = DesignSystem.Colors.textSecondary
+        } else { // Tree mode selected
+            textModeButton?.backgroundColor = .clear
+            textModeButton?.tintColor = DesignSystem.Colors.textSecondary
+            treeModeButton?.backgroundColor = DesignSystem.Colors.primary
+            treeModeButton?.tintColor = .white
+        }
     }
 
     // Setup button targets with explicit references
@@ -353,9 +448,8 @@ extension ViewController {
         validateButton.addTarget(self, action: #selector(validateJsonTapped), for: .touchUpInside)
         formatJsonButton.addTarget(self, action: #selector(formatJsonTapped), for: .touchUpInside)
         searchToggleButton.addTarget(self, action: #selector(handleSearchButtonTapped), for: .touchUpInside)
-        minimapToggleButton.addTarget(self, action: #selector(handleMinimapToggleButtonTapped), for: .touchUpInside)
         editToggleButton?.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)
-        rawViewToggleButton?.addTarget(self, action: #selector(handleRawViewToggleButtonTapped), for: .touchUpInside)
+        // rawViewToggleButton target already set in setupRawViewToggle(), no need to add duplicate handler
         
         // View Mode (Text/Tree) - handled by custom buttons now
         textModeButton?.addTarget(self, action: #selector(buttonModeChanged(_:)), for: .touchUpInside)

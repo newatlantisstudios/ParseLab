@@ -112,6 +112,7 @@ class FixedPositionActionsBar: UIView {
                     viewController.view.bringSubviewToFront(pathContainer)
                     
                     // Update UI state
+                    print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FixedPositionActionsBar.swift, isLoaded: true")
                     viewController.updateUIVisibilityForJsonLoaded(true)
                 }
             }

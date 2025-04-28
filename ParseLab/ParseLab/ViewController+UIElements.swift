@@ -81,16 +81,6 @@ extension ViewController {
         return button
     }
     
-    func createMinimapToggleButton() -> UIButton {
-        let button = UIButton(type: .system)
-        button.setTitle("Minimap", for: .normal)
-        button.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 13.0, *) {
-            button.setImage(UIImage(systemName: "sidebar.right"), for: .normal)
-        }
-        return button
-    }
-    
     func createViewModeSegmentedControl() -> UISegmentedControl {
         let items = ["Text", "Tree"]
         let control = UISegmentedControl(items: items)
@@ -122,14 +112,6 @@ extension ViewController {
     }
     
     // MARK: - JSON Path Navigation Elements
-    
-    func createJsonMinimap() -> JsonMinimap {
-        let minimap = JsonMinimap()
-        minimap.translatesAutoresizingMaskIntoConstraints = false
-        minimap.backgroundColor = DesignSystem.Colors.backgroundSecondary
-        minimap.isHidden = true // Initially hidden until JSON is loaded
-        return minimap
-    }
     
     func createJsonPathNavigator() -> JsonPathNavigator {
         let navigator = JsonPathNavigator()

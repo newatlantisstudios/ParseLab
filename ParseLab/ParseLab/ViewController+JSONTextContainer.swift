@@ -12,9 +12,10 @@ extension ViewController {
     
     // Configure text view specifically for JSON display
     internal func configureTextViewForJSONDisplay() {
-        // Check if we're using our custom bounded text view
-        if let boundedTextView = self.boundedTextView {
+        // Check if the current fileContentView is actually our BoundedTextView
+        if let boundedTextView = self.fileContentView as? BoundedTextView {
             // Apply custom styling with visible border
+            print("[DEBUG] configureTextViewForJSONDisplay: Applying BoundedTextView style.")
             boundedTextView.applyCustomCodeStyle()
             return
         }

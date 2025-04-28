@@ -230,7 +230,7 @@ extension ViewController: TextViewTouchHandling, SimpleModalEditorDelegate {
         print("[LOG] refreshJsonView: Updating path navigator")
         jsonPathNavigator.setPath(currentPath)
         print("[LOG] refreshJsonView: Updating minimap")
-        jsonMinimap.setJson(currentJsonObject)
+        // jsonMinimap.setJson(currentJsonObject)
         
         // Apply syntax highlighting
         print("[LOG] refreshJsonView: Calling displayCurrentJson")

@@ -169,22 +169,24 @@ extension ViewController {
                 enableInfoButton()
             }
             
-            // BUGFIX: Apply direct fix for toolbar buttons and ensure edit button is shown
+            // Before scheduling the async block, ensure the default mode is text view
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 guard let self = self else { return }
                 // Make sure JSON-specific UI elements visible
                 self.jsonActionsStackView.isHidden = false
                 self.jsonActionsToolbar.isHidden = false
                 self.navigationContainerView.isHidden = false
-                
-                // Make sure action buttons are all configured
                 self.actionsBar.isHidden = false
-                
-                // Force text view to be directly editable
-                self.makeTextViewDirectlyEditable()
-                
-                // Explicitly call updateUIVisibilityForJsonLoaded to ensure edit button is shown
+                print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (asyncAfter .1s), isLoaded: true")
                 self.updateUIVisibilityForJsonLoaded(true)
+                // Only restore the text view if the tree view is not visible
+                if !self.isTreeViewVisible {
+                    print("[DEBUG] (Refactor) Ensuring text view is visible after UI update (asyncAfter .1s)")
+                    self.switchToTextView(animated: false)
+                } else {
+                    print("[DEBUG] (Refactor) Tree view is visible, not switching views in async block.")
+                }
+                self.fixTreeViewForStandardTextView()
             }
             
             // Show success toast
@@ -220,113 +222,146 @@ extension ViewController {
                     let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
                     if let prettyText = String(data: prettyData, encoding: .utf8) {
                         displayText = prettyText
-                        DispatchQueue.main.async { [weak self] in
-                            guard let self = self else { return }
-                            self.title = "JSON: \(filename)"
+                        self.title = "JSON: \(filename)"
+                        
+                        // Reset navigation path to root
+                        self.currentPath = ["$"]
+                        self.jsonPathNavigator.updatePath(self.currentPath)
+                        
+                        // Display the JSON using the specialized method if possible
+                        if let boundedTextView = self.fileContentView as? BoundedTextView {
+                            print("[DEBUG] displayFileContent: Updating existing BoundedTextView.")
                             
-                            // Reset navigation path to root
-                            self.currentPath = ["$"]
-                            self.jsonPathNavigator.updatePath(self.currentPath)
+                            // Instead of creating a new view, update the existing one
+                            let attributedString = self.jsonHighlighter.highlightJSON(prettyText, font: boundedTextView.font)
+                            boundedTextView.attributedText = attributedString
                             
-                            // Set the JSON structure for the minimap
-                            self.jsonMinimap.setJsonStructure(jsonObject)
+                            // Ensure it's correctly configured for display
+                            boundedTextView.isEditable = false
+                            boundedTextView.isSelectable = true
+                            boundedTextView.isUserInteractionEnabled = true
+                            boundedTextView.applyCustomCodeStyle() // Re-apply style if needed
+                            boundedTextView.invalidateIntrinsicContentSize() // Tell layout system size changed
                             
-                            // Reset view modes when loading new file
-                            self.isRawViewMode = false
-                            self.isEditMode = false
-                            
-                            // Display the JSON with syntax highlighting
+                            // Ensure it's visible and properly positioned within the stack view
+                            boundedTextView.isHidden = false
+                            boundedTextView.alpha = 1.0
+                            if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                                // If somehow it got removed from arrangedSubviews, add it back
+                                // (This shouldn't happen if we don't remove it here)
+                                print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                                self.contentStackView.insertArrangedSubview(boundedTextView, at: 0) // Or appropriate index
+                            }
+                            print("[DEBUG] displayFileContent: Updated existing BoundedTextView with text length: \(boundedTextView.text.count)")
+                        } else {
+                            // Fallback: If it's not a BoundedTextView (shouldn't happen after viewDidLoad),
+                            // just set the attributed text on the standard UITextView.
+                            print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView.")
                             let attributedString = self.jsonHighlighter.highlightJSON(prettyText, font: self.fileContentView.font)
                             self.fileContentView.attributedText = attributedString
-                            
-                            // Force text view to be properly configured
                             self.fileContentView.isEditable = false
                             self.fileContentView.isSelectable = true
-                            self.fileContentView.isUserInteractionEnabled = true
-                            
-                            // Make all UI elements visible
-                            self.jsonActionsStackView.isHidden = false
-                            self.jsonActionsToolbar.isHidden = false
-                            self.navigationContainerView.isHidden = false
-                            self.actionsBar.isHidden = false
-                            
-                            // Update buttons
-                            if let rawButton = self.rawViewToggleButton {
-                                rawButton.setTitle("Raw", for: .normal)
-                                rawButton.isHidden = false
-                            }
-                            
-                            if let editButton = self.editToggleButton {
-                                editButton.setTitle("Edit", for: .normal)
-                                editButton.isEnabled = true
-                                editButton.isHidden = false
-                            }
-                            
-                            if let saveButton = self.saveButton {
-                                saveButton.isHidden = true
-                            }
-                            
-                            if let cancelButton = self.cancelButton {
-                                cancelButton.isHidden = true
-                            }
-                            
-                            // Ensure edit button is visible
-                            self.updateUIVisibilityForJsonLoaded(true)
-                            
-                                        // Force layout update
-                            self.view.layoutIfNeeded()
-                            
-                            // Ensure text view is properly visible
                             self.fileContentView.isHidden = false
-                            self.contentStackView.isHidden = false
-                            
-                            // Scroll to top of content
-                            self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                            self.fileContentView.alpha = 1.0
                         }
+                        
+                        // Force layout update after setting content
+                        self.view.layoutIfNeeded()
+                        print("[DEBUG] displayFileContent: Frame after layoutIfNeeded: \(self.fileContentView.frame)") // Log Frame
+                        
+                        // Scroll to top
+                        self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+
+                        // Make all UI elements visible and update buttons
+                        self.jsonActionsStackView.isHidden = false // Deprecated?
+                        self.jsonActionsToolbar.isHidden = false // Deprecated?
+                        self.navigationContainerView.isHidden = false
+                        self.actionsBar.isHidden = false // Use the modern actions bar
+                        
+                        if let rawButton = self.rawViewToggleButton {
+                            rawButton.setTitle("Raw", for: .normal)
+                            rawButton.isHidden = false
+                        }
+                        
+                        if let editButton = self.editToggleButton {
+                            editButton.setTitle("Edit", for: .normal)
+                            editButton.isEnabled = true
+                            editButton.isHidden = false
+                        }
+                        
+                        if let saveButton = self.saveButton {
+                            saveButton.isHidden = true
+                        }
+                        
+                        if let cancelButton = self.cancelButton {
+                            cancelButton.isHidden = true
+                        }
+                        
+                        // Update overall UI visibility state
+                        self.isMinimapVisible = true
+                        print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (after updating text view), isLoaded: true")
+                        self.updateUIVisibilityForJsonLoaded(true)
                         return // Exit early as we've handled the JSON display
                     }
                 } catch {
-                    // If JSON parsing fails, show the error and raw content
-                    print("JSON parsing error: \(error)")
-                    displayText = "JSON Parsing Error: \(error.localizedDescription)\n\n\(text)"
-                    textColor = .systemRed
+                    // Could not pretty print JSON, display raw text
+                    displayText = text
+                    textColor = .label
+                    DispatchQueue.main.async { [weak self] in
+                         guard let self = self else { return }
+                        self.title = "Text: \(filename)"
+                         self.fileContentView.text = displayText
+                         self.fileContentView.textColor = textColor
+                         self.fileContentView.isEditable = false
+                         self.fileContentView.isHidden = false
+                         self.fileContentView.alpha = 1.0
+                         self.currentJsonObject = nil // Mark as not JSON
+                         print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (non-JSON), isLoaded: false")
+                         self.updateUIVisibilityForJsonLoaded(false) // Hide JSON specific UI
+                    }
                 }
             } else {
                 // Not JSON, display as plain text
+                print("Displaying as plain text file")
                 displayText = text
+                textColor = .label
                 DispatchQueue.main.async { [weak self] in
-                    guard let self = self else { return }
+                     guard let self = self else { return }
                     self.title = "Text: \(filename)"
-                    
-                    // Hide JSON-specific UI elements
-                    self.jsonActionsStackView.isHidden = true
-                    self.jsonActionsToolbar.isHidden = true
-                    self.navigationContainerView.isHidden = true
-                    self.jsonMinimap.isHidden = true
-                    self.searchContainerView.isHidden = true
-                    self.searchResultsTableView.isHidden = true
-                    
-                    self.currentJsonObject = nil
+                     self.fileContentView.text = displayText
+                     self.fileContentView.textColor = textColor
+                     self.fileContentView.isEditable = false
+                     self.fileContentView.isHidden = false
+                     self.fileContentView.alpha = 1.0
+                     self.currentJsonObject = nil // Mark as not JSON
+                     print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (plain text), isLoaded: false")
+                     self.updateUIVisibilityForJsonLoaded(false) // Hide JSON specific UI
                 }
             }
         } else {
-            // Not UTF-8 text
-            displayText = "File: \(filename)\n\nThis appears to be a binary file that cannot be displayed."
-            textColor = .secondaryLabel
-        }
-
-        // If we reach here, display the text as-is
-        if displayText != nil {
-            let attributedString = NSAttributedString(
-                string: displayText!,
-                attributes: [.foregroundColor: textColor, .font: baseFont]
-            )
-            
-            // Update UI on main thread
+            // Could not decode as UTF-8 text
+            displayText = "Error: Could not decode file content."
+            textColor = .red
             DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                self.fileContentView.attributedText = attributedString
+                 guard let self = self else { return }
+                self.title = "Error: \(filename)"
+                 self.fileContentView.text = displayText
+                 self.fileContentView.textColor = textColor
+                 self.fileContentView.isEditable = false
+                 self.fileContentView.isHidden = false
+                 self.fileContentView.alpha = 1.0
+                 self.currentJsonObject = nil // Mark as not JSON
+                 print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (decode error), isLoaded: false")
+                 self.updateUIVisibilityForJsonLoaded(false) // Hide JSON specific UI
             }
+        }
+        
+        // Ensure main UI update happens after potential content update
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            // Final check on UI visibility based on whether JSON loaded successfully
+            self.updateUIVisibilityForJsonLoaded(self.currentJsonObject != nil)
+            self.view.layoutIfNeeded() // Ensure layout updates after visibility changes
         }
     }
     
@@ -461,9 +496,11 @@ extension ViewController {
                         self.fileContentView.isSelectable = true
                         self.fileContentView.isUserInteractionEnabled = true
                         
-                        // Ensure text view is properly visible
+                        // Ensure text view is properly visible with explicit orders
                         self.fileContentView.isHidden = false
+                        self.fileContentView.alpha = 1.0
                         self.contentStackView.isHidden = false
+                        self.contentStackView.alpha = 1.0
                         
                         // Scroll to top of content
                         self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
@@ -476,10 +513,6 @@ extension ViewController {
                         self.jsonActionsStackView.isHidden = false
                         self.jsonActionsToolbar.isHidden = false
                         self.navigationContainerView.isHidden = false
-                        
-                        // Set the JSON structure for the minimap
-                        self.jsonMinimap.isHidden = false
-                        self.jsonMinimap.setJsonStructure(jsonObject)
                         
                         // Reset edit mode
                         self.isEditMode = false
@@ -512,10 +545,14 @@ extension ViewController {
                         self.actionsBar.isHidden = false
                         
                         // Update UI visibility to make sure all JSON tools are visible
+                        print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (after sample load), isLoaded: true")
                         self.updateUIVisibilityForJsonLoaded(true)
                         
                         // Fix any buttons displaying "..." text instead of an icon
                         self.fixEllipsisButtons()
+                        
+                        // Apply fixes for tree view and minimap when using standard UITextView
+                        self.fixTreeViewForStandardTextView()
                         
                         // Show toast message
                         self.showEnhancedToast(message: "Sample file is read-only", type: ToastType.info)
@@ -527,6 +564,22 @@ extension ViewController {
             }
         } else {
             self.showEnhancedToast(message: "Could not find sample.json in the app bundle", type: ToastType.error)
+        }
+    }
+
+    // Add this method at the end of the extension to fix tree view constraints when using standard UITextView
+    @objc internal func fixTreeViewForStandardTextView() {
+        print("[DEBUG] fixTreeViewForStandardTextView: Applying constraint fixes for standard UITextView")
+        
+        // If our text view is not a BoundedTextView, we need special handling for tree view
+        if !(self.fileContentView is BoundedTextView) {
+            // Store a reference to the fix in the document window controller
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                // Fix any broken constraints in our view hierarchy
+                self.view.setNeedsLayout()
+                self.view.layoutIfNeeded()
+            }
         }
     }
 }

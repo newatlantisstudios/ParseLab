@@ -1,4 +1,3 @@
-
 //
 //  JsonTreeViewController.swift
 //  ParseLab
@@ -21,6 +20,9 @@ class JsonTreeViewController: UIViewController {
         tableView.backgroundColor = .systemBackground
         return tableView
     }()
+    
+    // Expose tableView for external configuration
+    var publicTableView: UITableView { tableView }
     
     // Root node of the tree
     private var rootNode: JsonTreeNode?

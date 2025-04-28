@@ -165,7 +165,7 @@ class SimpleModalEditor: UIViewController {
                     }
                     
                     // Force update UI state (visibility of toolbars, etc.)
-                    print("[LOG] modalEditorDidCancel: Calling updateUIVisibilityForJsonLoaded.")
+                    print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from SimpleModalEditor.swift (modalEditorDidCancel), isLoaded: \(parentVC.currentJsonObject != nil)")
                     parentVC.updateUIVisibilityForJsonLoaded(parentVC.currentJsonObject != nil)
                     
                     // Force layout update

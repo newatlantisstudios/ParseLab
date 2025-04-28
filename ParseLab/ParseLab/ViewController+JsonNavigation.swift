@@ -135,25 +135,4 @@ extension ViewController {
             }
         }
     }
-    
-    // MARK: - Minimap Interaction
-    
-    // Update the viewport indicator on the minimap
-    func updateMinimapViewport() {
-        // Only update if we have content and the minimap is visible
-        guard jsonMinimap.isHidden == false, fileContentView.contentSize.height > 0 else {
-            return
-        }
-        
-        // Get the visible portion of the text view
-        let visibleRect = CGRect(
-            x: fileContentView.contentOffset.x,
-            y: fileContentView.contentOffset.y,
-            width: fileContentView.bounds.width,
-            height: fileContentView.bounds.height
-        )
-        
-        // Update the minimap with current viewport
-        jsonMinimap.updateVisibleRect(visibleRect, contentSize: fileContentView.contentSize)
-    }
 }

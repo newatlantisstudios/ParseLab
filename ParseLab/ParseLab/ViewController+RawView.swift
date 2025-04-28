@@ -33,12 +33,20 @@ extension ViewController {
     
     // Toggle between raw and formatted JSON text
     @objc internal func toggleRawView() {
-        guard currentJsonObject != nil, isTextModeActive() else {
-            return // Only works in text mode with valid JSON
+        print("[DEBUG] toggleRawView: called, isTreeViewVisible=\(isTreeViewVisible), isRawViewMode=\(isRawViewMode)")
+        guard currentJsonObject != nil else {
+            print("[DEBUG] toggleRawView: No JSON loaded, exiting")
+            return
+        }
+        // If tree view is active, switch back to text view before toggling raw mode
+        if isTreeViewVisible {
+            print("[DEBUG] toggleRawView: Tree view active—switching to text view")
+            switchToTextView(animated: false)
         }
         
         // Toggle the raw view state
         isRawViewMode.toggle()
+        print("[DEBUG] toggleRawView: isRawViewMode now=\(isRawViewMode)")
         
         // Update the toggle button text
         rawViewToggleButton.setTitle(isRawViewMode ? "Formatted" : "Raw", for: .normal)
@@ -49,9 +57,21 @@ extension ViewController {
         // Display the JSON in the appropriate format
         updateJsonDisplayFormat()
         
+        // Ensure the JSON text view and raw toggle button are visible
+        self.fileContentView.isHidden = false
+        self.contentStackView.isHidden = false
+        self.rawViewToggleButton.isHidden = false
+        self.view.bringSubviewToFront(self.contentStackView)
+        print("[DEBUG] toggleRawView: fileContentView.text length=\(self.fileContentView.text.count)")
+        // Scroll to top of content
+        self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+        print("[DEBUG] toggleRawView: Frame BEFORE asyncAfter layout: \(self.fileContentView.frame), Hidden: \(self.fileContentView.isHidden)") // Log Frame
+        
         // Force layout update after a short delay to ensure wrapping takes effect
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.updateTextContainerWidth()
+            guard let self = self else { return }
+            self.updateTextContainerWidth()
+            print("[DEBUG] toggleRawView: Frame AFTER asyncAfter layout: \(self.fileContentView.frame), Hidden: \(self.fileContentView.isHidden)") // Log Frame
         }
     }
     
@@ -71,56 +91,25 @@ extension ViewController {
             let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: options)
             
             if let jsonText = String(data: jsonData, encoding: .utf8) {
-                // Check if we have our custom bounded text view
-                if let boundedTextView = self.boundedTextView {
-                    // Apply custom styling with visible border
+                // Since fileContentView is now guaranteed to be BoundedTextView after replacement,
+                // directly use it and its specialized method.
+                if let boundedTextView = self.fileContentView as? BoundedTextView {
+                     print("[DEBUG] updateJsonDisplayFormat: Using BoundedTextView instance.")
                     boundedTextView.applyCustomCodeStyle()
-                    
-                    // Use the specialized method for JSON text display
                     if !isRawViewMode {
+                        // Formatted view with syntax highlighting
                         boundedTextView.setJSONText(jsonText, highlighter: jsonHighlighter)
                     } else {
-                        boundedTextView.setJSONText(jsonText)
+                        // Raw view: display plain JSON text
+                        boundedTextView.text = jsonText
                     }
                 } else {
-                    // Fallback to standard text view with improved styling
-                    // Configure text container
-                    fileContentView.textContainer.widthTracksTextView = true
-                    fileContentView.isScrollEnabled = true
-                    fileContentView.clipsToBounds = true
-                    
-                    // Set explicit padding and wrapping
-                    fileContentView.textContainerInset = UIEdgeInsets(top: 24, left: 16, bottom: 24, right: 16)
-                    fileContentView.contentInset = UIEdgeInsets(top: 12, left: 8, bottom: 12, right: 8)
-                    fileContentView.textContainer.lineFragmentPadding = 0
-                    fileContentView.textContainer.lineBreakMode = .byCharWrapping
-                    
-                    // Set proper width
-                    let availableWidth = fileContentView.bounds.width - 48 // Increased inset for safety
-                    if availableWidth > 0 {
-                        fileContentView.textContainer.size = CGSize(width: availableWidth, height: CGFloat.greatestFiniteMagnitude)
-                    }
-                    
-                    // Create paragraph style
-                    let paragraphStyle = NSMutableParagraphStyle()
-                    paragraphStyle.lineBreakMode = .byCharWrapping
-                    paragraphStyle.lineSpacing = 2
-                    
-                    // Apply formatting
+                    print("[DEBUG] updateJsonDisplayFormat: Fallback - fileContentView is not BoundedTextView.")
                     if !isRawViewMode {
                         let attributedString = jsonHighlighter.highlightJSON(jsonText, font: fileContentView.font)
-                        let mutableString = NSMutableAttributedString(attributedString: attributedString)
-                        mutableString.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: mutableString.length))
-                        fileContentView.attributedText = mutableString
-                    } else {
-                        let attributedString = NSAttributedString(
-                            string: jsonText,
-                            attributes: [
-                                .font: fileContentView.font as Any,
-                                .paragraphStyle: paragraphStyle
-                            ]
-                        )
                         fileContentView.attributedText = attributedString
+                    } else {
+                        fileContentView.text = jsonText
                     }
                 }
                 

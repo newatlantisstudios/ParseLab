@@ -188,7 +188,7 @@ class FixedPositionToolbar: UIView {
                     viewController.fileContentView.isHidden = false
                     viewController.view.bringSubviewToFront(viewController.fileContentView)
                     
-                    // Update UI state
+                    print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FixedPositionToolbar.swift, isLoaded: true")
                     viewController.updateUIVisibilityForJsonLoaded(true)
                     
                     // Force layout

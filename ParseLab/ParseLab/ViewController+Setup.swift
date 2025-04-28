@@ -99,9 +99,6 @@ extension ViewController {
             viewModeSegmentedControl.setTitleTextAttributes([.font: DesignSystem.Typography.bodyMedium()], for: .normal)
         }
         
-        // Minimap styling
-        jsonMinimap.applyCardStyle(cornerRadius: DesignSystem.Sizing.smallCornerRadius, shadowLevel: 0)
-        
         // Edit controls
         if rawViewToggleButton != nil {
             rawViewToggleButton.applySecondaryStyle()
@@ -282,8 +279,8 @@ extension ViewController {
                 toastLabel.topAnchor.constraint(equalTo: toastContainer.topAnchor, constant: DesignSystem.Spacing.small),
                 toastLabel.bottomAnchor.constraint(equalTo: toastContainer.bottomAnchor, constant: -DesignSystem.Spacing.small),
                 
-                // Position toast at the top middle of the screen
-                toastContainer.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: DesignSystem.Spacing.large),
+                // Position toast at the bottom middle of the screen
+                toastContainer.bottomAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.bottomAnchor, constant: -DesignSystem.Spacing.large),
                 toastContainer.centerXAnchor.constraint(equalTo: self.view.centerXAnchor),
                 toastContainer.widthAnchor.constraint(lessThanOrEqualTo: self.view.widthAnchor, constant: -DesignSystem.Spacing.large)
             ])

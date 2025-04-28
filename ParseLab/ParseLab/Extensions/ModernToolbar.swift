@@ -65,7 +65,7 @@ class ModernToolbar: UIView {
         stackView.alignment = .center
         stackView.distribution = .fill
         stackView.translatesAutoresizingMaskIntoConstraints = false
-        stackView.spacing = DesignSystem.Spacing.medium
+        stackView.spacing = DesignSystem.Spacing.large
         stackView.isUserInteractionEnabled = true
         self.addSubview(stackView)
         
@@ -227,7 +227,7 @@ class ModernToolbar: UIView {
         rightStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         
         // Set up spacing for the main stack and section stacks
-        stackView.spacing = DesignSystem.Spacing.medium
+        stackView.spacing = DesignSystem.Spacing.large
         leftStackView.spacing = itemSpacing
         centerStackView.spacing = itemSpacing
         rightStackView.spacing = itemSpacing
@@ -252,12 +252,17 @@ class ModernToolbar: UIView {
         for item in leftItems + centerItems + rightItems {
             // Handle both buttons and custom views
             if let button = item as? UIButton {
-                // Use smaller content insets when we have more buttons
-                if totalItems > 5 {
-                    button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
-                } else {
-                    button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
-                }
+                // Use smaller content insets when we have more buttons ONLY if default insets are present
+                let defaultInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+                let tinyInsets = UIEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+                if button.contentEdgeInsets == defaultInsets || button.contentEdgeInsets == tinyInsets || button.contentEdgeInsets == .zero {
+                    // Only override if the insets seem to be the default/unset or previously set by this logic
+                    if totalItems > 5 {
+                        button.contentEdgeInsets = tinyInsets
+                    } else {
+                        button.contentEdgeInsets = defaultInsets
+                    }
+                } // else: Keep custom insets set elsewhere (e.g., in createStyledToolbarButton)
                 
                 // Remove all existing width/height constraints to prevent conflicts
                 for constraint in button.constraints {
@@ -268,7 +273,7 @@ class ModernToolbar: UIView {
                 
                 // Add flexible width constraint based on number of items
                 let widthConstraint = button.widthAnchor.constraint(equalToConstant: buttonSize)
-                widthConstraint.priority = UILayoutPriority(750) // Medium priority
+                widthConstraint.priority = UILayoutPriority(700) // Lowered from 750
                 widthConstraint.isActive = true
                 
                 // Prioritize compression resistance for button content
@@ -284,7 +289,7 @@ class ModernToolbar: UIView {
                 
                 // Add flexible size constraint
                 let widthConstraint = customView.widthAnchor.constraint(equalToConstant: buttonSize)
-                widthConstraint.priority = UILayoutPriority(750) // Medium priority
+                widthConstraint.priority = UILayoutPriority(700) // Lowered from 750
                 widthConstraint.isActive = true
                 
                 // Setup proper priorities for custom views
@@ -312,10 +317,15 @@ class ModernToolbar: UIView {
         rightStackView.alignment = .center
         
         // Adjust spacing between items based on total item count
+        let adjustedItemSpacing = totalItems > 5 ? itemSpacing : DesignSystem.Spacing.medium // Increase spacing when fewer items
         if totalItems > 5 {
-            leftStackView.spacing = itemSpacing / 2
-            centerStackView.spacing = itemSpacing / 2
-            rightStackView.spacing = itemSpacing / 2
+            leftStackView.spacing = adjustedItemSpacing / 2 // Use adjusted spacing
+            centerStackView.spacing = adjustedItemSpacing / 2 // Use adjusted spacing
+            rightStackView.spacing = adjustedItemSpacing / 2 // Use adjusted spacing
+        } else {
+            leftStackView.spacing = adjustedItemSpacing // Use adjusted spacing
+            centerStackView.spacing = adjustedItemSpacing // Use adjusted spacing
+            rightStackView.spacing = adjustedItemSpacing // Use adjusted spacing
         }
         
         // Give right stack view highest priority for compression resistance

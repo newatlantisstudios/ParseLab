@@ -23,7 +23,7 @@ extension ViewController {
         // --- Main Toolbar (Top: Open/Sample) --- TEST: Using standard UIStackView
         let mainToolbar = UIStackView() // Use standard UIStackView for testing
         mainToolbar.axis = .horizontal
-        mainToolbar.distribution = .fillEqually // Simple distribution
+        mainToolbar.distribution = .fillProportionally // Change from .fill to .fillProportionally
         mainToolbar.spacing = DesignSystem.Spacing.medium
         mainToolbar.translatesAutoresizingMaskIntoConstraints = false
         mainToolbar.isUserInteractionEnabled = true
@@ -48,8 +48,8 @@ extension ViewController {
         )
         openFileButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -8, bottom: 0, right: 0)
         openFileButton.showsMenuAsPrimaryAction = true
-        openFileButton.setContentHuggingPriority(.required, for: .horizontal)
-        openFileButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        openFileButton.setContentHuggingPriority(.defaultHigh, for: .horizontal) // Lowered from .required
+        openFileButton.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal) // Lowered from .required
         openFileButton.isUserInteractionEnabled = true
         self.openButton = openFileButton
         
@@ -99,9 +99,6 @@ extension ViewController {
 
         let searchButton = createStyledToolbarButton(systemName: "magnifyingglass")
         self.searchToggleButton = searchButton
-
-        let minimapButton = createStyledToolbarButton(systemName: "sidebar.right")
-        self.minimapToggleButton = minimapButton
         
         // Create View Mode Buttons (Text/Tree)
         let viewModeContainer = createViewModeControl()
@@ -109,7 +106,7 @@ extension ViewController {
         // Add buttons to actions bar
         actionsBar.setLeftItems([validateButton, formatJsonButton, editButton])
         actionsBar.setCenterItems([viewModeContainer])
-        actionsBar.setRightItems([searchButton, minimapButton])
+        actionsBar.setRightItems([searchButton])
         
         view.addSubview(actionsBar)
         
@@ -130,12 +127,10 @@ extension ViewController {
         view.addSubview(pathContainer)
         
         // --- Content Stack (TextView + Minimap) ---
+        contentStackView.axis = .vertical
         contentStackView.spacing = DesignSystem.Spacing.medium
         fileContentView.applyCodeStyle()
-        jsonMinimap.applyCardStyle(cornerRadius: DesignSystem.Sizing.smallCornerRadius, shadowLevel: 0)
-        jsonMinimap.isHidden = true
         contentStackView.addArrangedSubview(fileContentView)
-        contentStackView.addArrangedSubview(jsonMinimap)
         view.addSubview(contentStackView)
         
         // --- Search UI ---
@@ -155,7 +150,7 @@ extension ViewController {
             actionsBar.topAnchor.constraint(equalTo: mainToolbar.bottomAnchor, constant: DesignSystem.Spacing.medium),
             actionsBar.leadingAnchor.constraint(equalTo: layoutGuide.leadingAnchor, constant: DesignSystem.Spacing.small),
             actionsBar.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -DesignSystem.Spacing.small),
-            actionsBar.heightAnchor.constraint(equalToConstant: 44), // Keep standard height
+            actionsBar.heightAnchor.constraint(equalToConstant: 50), // Increased from 44
             
             // Path container
             pathContainer.topAnchor.constraint(equalTo: actionsBar.bottomAnchor, constant: DesignSystem.Spacing.medium),
@@ -169,8 +164,7 @@ extension ViewController {
             contentStackView.trailingAnchor.constraint(equalTo: layoutGuide.trailingAnchor, constant: -DesignSystem.Spacing.small),
             contentStackView.bottomAnchor.constraint(equalTo: layoutGuide.bottomAnchor, constant: -DesignSystem.Spacing.small),
             
-            // Minimap width
-            jsonMinimap.widthAnchor.constraint(equalToConstant: 120),
+            // NOTE: Removed fixed width constraint for minimap
         ])
         
         // Store reference to main toolbar (now UIStackView)
@@ -196,14 +190,6 @@ extension ViewController {
         button.backgroundColor = DesignSystem.Colors.backgroundTertiary
         button.layer.cornerRadius = DesignSystem.Sizing.smallCornerRadius
         
-        let sizeConstraint: CGFloat = 40
-        let widthConstraint = button.widthAnchor.constraint(equalToConstant: sizeConstraint)
-        widthConstraint.priority = .defaultHigh
-        widthConstraint.isActive = true
-        let heightConstraint = button.heightAnchor.constraint(equalToConstant: sizeConstraint)
-        heightConstraint.priority = .defaultHigh
-        heightConstraint.isActive = true
-        
         button.setContentHuggingPriority(.required, for: .horizontal)
         button.setContentCompressionResistancePriority(.required, for: .horizontal)
         
@@ -216,6 +202,7 @@ extension ViewController {
         viewModeContainer.translatesAutoresizingMaskIntoConstraints = false
         viewModeContainer.backgroundColor = DesignSystem.Colors.backgroundTertiary
         viewModeContainer.layer.cornerRadius = DesignSystem.Sizing.smallCornerRadius
+        viewModeContainer.clipsToBounds = true
 
         let textModeButton = UIButton(type: .system)
         textModeButton.translatesAutoresizingMaskIntoConstraints = false
@@ -258,10 +245,10 @@ extension ViewController {
         
         viewModeContainer.addSubview(buttonStack)
         NSLayoutConstraint.activate([
-            buttonStack.topAnchor.constraint(equalTo: viewModeContainer.topAnchor, constant: 2),
-            buttonStack.bottomAnchor.constraint(equalTo: viewModeContainer.bottomAnchor, constant: -2),
-            buttonStack.leadingAnchor.constraint(equalTo: viewModeContainer.leadingAnchor, constant: 2),
-            buttonStack.trailingAnchor.constraint(equalTo: viewModeContainer.trailingAnchor, constant: -2)
+            buttonStack.topAnchor.constraint(equalTo: viewModeContainer.topAnchor),
+            buttonStack.bottomAnchor.constraint(equalTo: viewModeContainer.bottomAnchor),
+            buttonStack.leadingAnchor.constraint(equalTo: viewModeContainer.leadingAnchor),
+            buttonStack.trailingAnchor.constraint(equalTo: viewModeContainer.trailingAnchor)
         ])
         
         // Hidden compatibility control
@@ -304,15 +291,9 @@ extension ViewController {
         formatJsonButton.isEnabled = isLoaded
         editToggleButton.isEnabled = isLoaded
         searchToggleButton.isEnabled = isLoaded
-        minimapToggleButton.isEnabled = isLoaded
         (fileInfoButton as? InfoButtonView)?.isEnabled = isLoaded
         textModeButton.isEnabled = isLoaded
         treeModeButton.isEnabled = isLoaded
-        
-        if !jsonMinimap.isHidden {
-            jsonMinimap.isHidden = !isLoaded
-            print("[UI UPDATE] jsonMinimap.isHidden: \(jsonMinimap.isHidden)")
-        }
         
         if !isLoaded {
             searchContainerView.isHidden = true
@@ -337,6 +318,9 @@ extension ViewController {
         print("[UI UPDATE] Forcing layoutIfNeeded")
         view.layoutIfNeeded()
         print("[UI UPDATE] updateUIVisibility finished")
+        print("[DEBUG] contentStackView arrangedSubviews: \(contentStackView.arrangedSubviews)")
+        // --- IMPORTANT: Never manipulate the stack arrangement of fileContentView or treeViewContainer here! ---
+        // Removed recursive call to switchToTreeView/switchToTextView to prevent UI reset loop.
     }
     
     // Show or hide edit mode UI (using overlay)

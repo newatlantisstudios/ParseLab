@@ -56,35 +56,13 @@ extension ViewController {
     
     // Setup editing controls
     internal func setupEditControls() {
-        editToggleButton = UIButton(type: .system)
-        editToggleButton.setTitle("Edit", for: .normal)
-        editToggleButton.translatesAutoresizingMaskIntoConstraints = false
-        editToggleButton.addTarget(self, action: #selector(toggleEditMode), for: .touchUpInside)
-        editToggleButton.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        editToggleButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        
-        // Create save button
-        saveButton = UIButton(type: .system)
-        saveButton.setTitle("Save", for: .normal)
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
-        saveButton.addTarget(self, action: #selector(saveJsonChanges), for: .touchUpInside)
-        saveButton.isHidden = true // Initially hidden
-        saveButton.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        saveButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        
-        // Create cancel button
-        cancelButton = UIButton(type: .system)
-        cancelButton.setTitle("Cancel", for: .normal)
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        cancelButton.addTarget(self, action: #selector(cancelEditing), for: .touchUpInside)
-        cancelButton.isHidden = true // Initially hidden
-        cancelButton.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        cancelButton.setContentCompressionResistancePriority(.required, for: .horizontal)
-        
-        // Add to JSON actions stack view
-        jsonActionsStackView.addArrangedSubview(editToggleButton)
-        jsonActionsStackView.addArrangedSubview(saveButton)
-        jsonActionsStackView.addArrangedSubview(cancelButton)
+        // Only update button state, do not create or add buttons here
+        editToggleButton.isHidden = false
+        editToggleButton.isEnabled = true
+        editToggleButton.setTitle(isEditMode ? "Edit Mode" : "Edit", for: .normal)
+
+        saveButton.isHidden = !isEditMode
+        cancelButton.isHidden = !isEditMode
     }
     
     // Toggle edit mode with improved approach
