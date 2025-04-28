@@ -59,7 +59,7 @@ extension ViewController {
         // Only update button state, do not create or add buttons here
         editToggleButton.isHidden = false
         editToggleButton.isEnabled = true
-        editToggleButton.setTitle(isEditMode ? "Edit Mode" : "Edit", for: .normal)
+        editToggleButton.setTitle("", for: .normal)
 
         saveButton.isHidden = !isEditMode
         cancelButton.isHidden = !isEditMode
@@ -184,7 +184,7 @@ extension ViewController {
             
             // Update edit button
             if let editButton = self.editFab as? UIButton {
-                editButton.setTitle("Edit", for: .normal)
+                editButton.setTitle("", for: .normal)
                 editButton.backgroundColor = .systemBlue
             }
         }
@@ -200,7 +200,7 @@ extension ViewController {
         fileContentView.isUserInteractionEnabled = true
         
         // Update button states
-        editToggleButton.setTitle(isEditMode ? "Edit Mode" : "Edit", for: .normal)
+        editToggleButton.setTitle("", for: .normal)
         
         // Make save and cancel buttons visible when in edit mode
         saveButton.isHidden = !isEditMode
@@ -280,7 +280,7 @@ extension ViewController {
             
             // Update edit button if it's a standard button
             if let editButton = editFab as? UIButton {
-                editButton.setTitle("Edit", for: .normal)
+                editButton.setTitle("", for: .normal)
                 editButton.backgroundColor = .systemBlue
                 if #available(iOS 13.0, *) {
                     editButton.setImage(UIImage(systemName: "pencil"), for: .normal)

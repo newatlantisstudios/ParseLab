@@ -224,10 +224,14 @@ extension ViewController {
             let icon = UIImage(systemName: "list.bullet", withConfiguration: config)?.withRenderingMode(.alwaysTemplate)
             treeModeButton.setImage(icon, for: .normal)
         } else { treeModeButton.setTitle("L", for: .normal) }
-        treeModeButton.backgroundColor = .clear // Initially deselected
+        treeModeButton.setTitle("", for: .normal)
+        treeModeButton.backgroundColor = .clear
         treeModeButton.tintColor = DesignSystem.Colors.text
         treeModeButton.tag = 1
         treeModeButton.addTarget(self, action: #selector(buttonModeChanged(_:)), for: .touchUpInside)
+        treeModeButton.imageView?.contentMode = .scaleAspectFit
+        treeModeButton.setNeedsLayout()
+        treeModeButton.layoutIfNeeded()
         self.treeModeButton = treeModeButton // Store reference
 
         let buttonPadding = UIEdgeInsets(top: 6, left: 16, bottom: 6, right: 16)

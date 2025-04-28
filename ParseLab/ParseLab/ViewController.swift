@@ -364,18 +364,26 @@ class ViewController: UIViewController {
         // Create raw view toggle button if it doesn't exist
         if rawViewToggleButton == nil {
             rawViewToggleButton = UIButton(type: .system)
-            rawViewToggleButton.setTitle("Raw", for: .normal)
+            rawViewToggleButton.setTitle("", for: .normal)
+            rawViewToggleButton.setImage(UIImage(systemName: "doc.plaintext"), for: .normal)
             rawViewToggleButton.translatesAutoresizingMaskIntoConstraints = false
             rawViewToggleButton.addTarget(self, action: #selector(toggleRawView), for: .touchUpInside)
+            rawViewToggleButton.imageView?.contentMode = .scaleAspectFit
+            rawViewToggleButton.setNeedsLayout()
+            rawViewToggleButton.layoutIfNeeded()
             jsonActionsStackView.addArrangedSubview(rawViewToggleButton)
         }
         
         // Create edit toggle button if it doesn't exist
         if editToggleButton == nil {
             editToggleButton = UIButton(type: .system)
-            editToggleButton.setTitle("Edit", for: .normal)
+            editToggleButton.setTitle("", for: .normal)
+            editToggleButton.setImage(UIImage(systemName: "pencil"), for: .normal)
             editToggleButton.translatesAutoresizingMaskIntoConstraints = false
             editToggleButton.addTarget(self, action: #selector(toggleEditMode), for: .touchUpInside)
+            editToggleButton.imageView?.contentMode = .scaleAspectFit
+            editToggleButton.setNeedsLayout()
+            editToggleButton.layoutIfNeeded()
             jsonActionsStackView.addArrangedSubview(editToggleButton)
         }
         

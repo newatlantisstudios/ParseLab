@@ -37,6 +37,9 @@ extension ViewController {
         
         // Apply initial layout based on current device
         updateSearchUILayout(for: traitCollection.horizontalSizeClass)
+        
+        // Adaptive button display for compact width
+        updateButtonForSizeClass()
     }
     
     // Setup keyboard and other notifications
@@ -305,5 +308,65 @@ extension ViewController {
         case error
         case warning
         case info
+    }
+    
+    // MARK: - Adaptive Button Display
+    func updateButtonForSizeClass() {
+        let isCompact = traitCollection.horizontalSizeClass == .compact
+
+        // Raw view toggle button
+        if let rawButton = rawViewToggleButton {
+            let rawIcon = UIImage(systemName: "doc.plaintext")
+            if isCompact {
+                rawButton.setTitle("", for: .normal)
+                rawButton.setImage(rawIcon, for: .normal)
+                rawButton.imageEdgeInsets = .zero
+                rawButton.imageView?.contentMode = .scaleAspectFit
+                rawButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.2) // Debug background
+            } else {
+                let title = isRawViewMode ? "Formatted" : "Raw"
+                rawButton.setTitle(title, for: .normal)
+                rawButton.setImage(rawIcon, for: .normal)
+                rawButton.imageEdgeInsets = .zero
+                rawButton.imageView?.contentMode = .scaleAspectFit
+                rawButton.backgroundColor = UIColor.systemRed.withAlphaComponent(0.2) // Debug background
+            }
+        }
+
+        // Tree mode button
+        if let treeButton = treeModeButton {
+            let treeIcon = UIImage(systemName: "list.bullet")
+            if isCompact {
+                treeButton.setTitle("", for: .normal)
+                treeButton.setImage(treeIcon, for: .normal)
+                treeButton.imageEdgeInsets = .zero
+                treeButton.imageView?.contentMode = .scaleAspectFit
+                treeButton.backgroundColor = .clear
+            } else {
+                treeButton.setTitle("", for: .normal)
+                treeButton.setImage(treeIcon, for: .normal)
+                treeButton.imageEdgeInsets = .zero
+                treeButton.imageView?.contentMode = .scaleAspectFit
+                treeButton.backgroundColor = .clear
+            }
+        }
+
+        // Edit button
+        if let editButton = editToggleButton {
+            let editIcon = UIImage(systemName: "pencil")
+            if isCompact {
+                editButton.setTitle("", for: .normal)
+                editButton.setImage(editIcon, for: .normal)
+                editButton.imageEdgeInsets = .zero
+                editButton.imageView?.contentMode = .scaleAspectFit
+                editButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.2) // Debug background
+            } else {
+                editButton.setTitle("Edit", for: .normal)
+                editButton.setImage(editIcon, for: .normal)
+                editButton.imageEdgeInsets = .zero
+                editButton.imageView?.contentMode = .scaleAspectFit
+                editButton.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.2) // Debug background
+            }
+        }
     }
 }

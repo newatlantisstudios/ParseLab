@@ -27,6 +27,9 @@ extension ViewController {
         DispatchQueue.main.async { [weak self] in
             self?.updateTextContainerWidth()
         }
+        
+        // Update adaptive button display for compact width
+        updateButtonForSizeClass()
     }
     
     // Update text container width to prevent text overflow
