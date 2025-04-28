@@ -139,7 +139,6 @@ extension ViewController {
             "• JSON validation and error checking",
             "• JSON Schema validation",
             "• Search within JSON keys and values",
-            "• Navigation with minimap visualization",
             "• Edit and save JSON files"
         ]
         let startingGuide = [
