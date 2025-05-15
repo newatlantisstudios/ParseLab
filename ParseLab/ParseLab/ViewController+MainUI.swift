@@ -90,8 +90,7 @@ extension ViewController {
         let validateButton = createStyledToolbarButton(systemName: "checkmark.circle")
         self.validateButton = validateButton
 
-        let formatJsonButton = createStyledToolbarButton(systemName: "text.alignleft")
-        self.formatJsonButton = formatJsonButton
+        // Format button removed as requested
 
         let editButton = createStyledToolbarButton(systemName: "pencil")
         self.editFab = editButton // Compatibility
@@ -103,8 +102,8 @@ extension ViewController {
         // Create View Mode Buttons (Text/Tree)
         let viewModeContainer = createViewModeControl()
 
-        // Add buttons to actions bar
-        actionsBar.setLeftItems([validateButton, formatJsonButton, editButton])
+        // Add buttons to actions bar - format button removed
+        actionsBar.setLeftItems([validateButton, editButton])
         actionsBar.setCenterItems([viewModeContainer])
         actionsBar.setRightItems([searchButton])
         
@@ -290,9 +289,11 @@ extension ViewController {
         print("[UI UPDATE] actionsBar.isHidden: \(actionsBar.isHidden)")
         print("[UI UPDATE] pathContainer.isHidden: \(pathContainer.isHidden)")
         
-        // Enable/disable JSON action buttons - remove optional chaining
+        // Enable/disable action buttons based on file load state
         validateButton.isEnabled = isLoaded
-        formatJsonButton.isEnabled = isLoaded
+        
+        // Don't set button titles - keep them as icon-only
+        
         editToggleButton.isEnabled = isLoaded
         searchToggleButton.isEnabled = isLoaded
         (fileInfoButton as? InfoButtonView)?.isEnabled = isLoaded

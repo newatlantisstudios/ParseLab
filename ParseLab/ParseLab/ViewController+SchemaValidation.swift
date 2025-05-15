@@ -14,7 +14,8 @@ extension ViewController {
     internal func setupSchemaValidation() {
         // Create schema validation button
         let schemaValidateButton = UIButton(type: .system)
-        schemaValidateButton.setTitle("Validate Schema", for: .normal)
+        let buttonTitle = "Validate Schema"
+        schemaValidateButton.setTitle(buttonTitle, for: .normal)
         schemaValidateButton.translatesAutoresizingMaskIntoConstraints = false
         schemaValidateButton.addTarget(self, action: #selector(schemaValidationTapped), for: .touchUpInside)
         
@@ -29,16 +30,28 @@ extension ViewController {
     // Handle schema validation button tap
     @objc internal func schemaValidationTapped() {
         guard let jsonObject = currentJsonObject, isTextModeActive() else {
-            self.showToast(message: "Schema validation requires a valid JSON document in text mode", type: .error)
+            self.showToast(message: "Schema validation requires a valid document in text mode", type: .error)
             return
         }
         
-        // Convert JSON object to data
+        // Check if we're dealing with TOML file
+        let isTOMLFile = self.isTOMLFile
+        
+        // Process according to file type
         do {
-            let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [])
+            let fileData: Data
+            
+            if isTOMLFile, let fileUrl = currentFileUrl, 
+               let tomlString = try? String(contentsOf: fileUrl, encoding: .utf8) {
+                // Use original TOML content for validation
+                fileData = tomlString.data(using: .utf8) ?? Data()
+            } else {
+                // For JSON or YAML (converted to JSON), use the current object
+                fileData = try JSONSerialization.data(withJSONObject: jsonObject, options: [])
+            }
             
             // Create and present schema validation view controller
-            let schemaVC = SchemaValidationViewController(jsonData: jsonData)
+            let schemaVC = SchemaValidationViewController(jsonData: fileData, isTOML: isTOMLFile)
             if let navigationController = navigationController {
                 navigationController.pushViewController(schemaVC, animated: true)
             } else {
@@ -46,7 +59,7 @@ extension ViewController {
                 present(navController, animated: true)
             }
         } catch {
-            self.showToast(message: "Error preparing JSON for schema validation: \(error.localizedDescription)", type: .error)
+            self.showToast(message: "Error preparing document for schema validation: \(error.localizedDescription)", type: .error)
         }
     }
 }

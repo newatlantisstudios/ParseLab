@@ -10,14 +10,18 @@ import UniformTypeIdentifiers
 
 class SchemaValidationViewController: UIViewController {
     
-    // JSON data to validate
+    // JSON or TOML data to validate
     private var jsonData: Data?
     
     // Schema data to validate against
     private var schemaData: Data?
     
-    // Schema validator
-    private let schemaValidator = JSONSchemaValidator()
+    // Flag to indicate if the data is TOML
+    private var isTOMLData: Bool = false
+    
+    // Schema validators
+    private let jsonSchemaValidator = JSONSchemaValidator()
+    private let tomlStringData: String? = nil
     
     // UI Components
     private let schemaSourceSegmentedControl: UISegmentedControl = {
@@ -25,6 +29,15 @@ class SchemaValidationViewController: UIViewController {
         control.selectedSegmentIndex = 0
         control.translatesAutoresizingMaskIntoConstraints = false
         return control
+    }()
+    
+    // Data type label
+    private let dataTypeLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.textColor = .secondaryLabel
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
     }()
     
     private let sampleTestButton: UIButton = {
@@ -72,9 +85,10 @@ class SchemaValidationViewController: UIViewController {
         return textView
     }()
     
-    // Initialize with JSON data to validate
-    init(jsonData: Data) {
+    // Initialize with JSON or TOML data to validate
+    init(jsonData: Data, isTOML: Bool = false) {
         self.jsonData = jsonData
+        self.isTOMLData = isTOML
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -89,10 +103,14 @@ class SchemaValidationViewController: UIViewController {
     }
     
     private func setupUI() {
-        title = "JSON Schema Validation"
+        title = "Schema Validation"
         view.backgroundColor = .systemBackground
         
+        // Set the data type label
+        dataTypeLabel.text = isTOMLData ? "Data type: TOML" : "Data type: JSON"
+        
         // Add UI components
+        view.addSubview(dataTypeLabel)
         view.addSubview(schemaSourceSegmentedControl)
         view.addSubview(schemaStatusLabel)
         view.addSubview(uploadSchemaButton)
@@ -102,7 +120,10 @@ class SchemaValidationViewController: UIViewController {
         
         // Set up constraints
         NSLayoutConstraint.activate([
-            schemaSourceSegmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            dataTypeLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            dataTypeLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            
+            schemaSourceSegmentedControl.topAnchor.constraint(equalTo: dataTypeLabel.bottomAnchor, constant: 12),
             schemaSourceSegmentedControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             schemaSourceSegmentedControl.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8),
             
@@ -193,7 +214,7 @@ class SchemaValidationViewController: UIViewController {
     // Handle validate button tap
     @objc private func validateButtonTapped() {
         guard let jsonData = jsonData else {
-            resultTextView.text = "Error: No JSON data to validate"
+            resultTextView.text = "Error: No data to validate"
             return
         }
         
@@ -202,17 +223,51 @@ class SchemaValidationViewController: UIViewController {
             return
         }
         
-        // Perform validation
-        let result = schemaValidator.validate(jsonData: jsonData, against: schemaData)
-        
-        switch result {
-        case .success:
-            resultTextView.text = "✅ Validation successful. JSON is valid according to the schema."
-            resultTextView.textColor = .systemGreen
-        case .failure(let errors):
-            let errorText = errors.errors.map { "❌ \($0.displayDescription)" }.joined(separator: "\n\n")
-            resultTextView.text = "Validation failed with \(errors.errors.count) error(s):\n\n\(errorText)"
-            resultTextView.textColor = .systemRed
+        if isTOMLData {
+            // TOML validation
+            do {
+                // Convert the data to string if not already done
+                guard let tomlString = String(data: jsonData, encoding: .utf8) else {
+                    resultTextView.text = "Error: Could not read TOML data as string"
+                    resultTextView.textColor = .systemRed
+                    return
+                }
+                
+                // Parse schema data into a dictionary
+                guard let schema = try JSONSerialization.jsonObject(with: schemaData, options: []) as? [String: Any] else {
+                    resultTextView.text = "Error: Invalid schema format"
+                    resultTextView.textColor = .systemRed
+                    return
+                }
+                
+                // Validate TOML against schema
+                let errors = try TOMLSchemaValidator.validate(tomlData: tomlString, schemaData: schema)
+                
+                if errors.isEmpty {
+                    resultTextView.text = "✅ Validation successful. TOML is valid according to the schema."
+                    resultTextView.textColor = .systemGreen
+                } else {
+                    let errorText = errors.map { "❌ \($0.message)" }.joined(separator: "\n\n")
+                    resultTextView.text = "Validation failed with \(errors.count) error(s):\n\n\(errorText)"
+                    resultTextView.textColor = .systemRed
+                }
+            } catch {
+                resultTextView.text = "Error validating TOML: \(error.localizedDescription)"
+                resultTextView.textColor = .systemRed
+            }
+        } else {
+            // JSON validation
+            let result = jsonSchemaValidator.validate(jsonData: jsonData, against: schemaData)
+            
+            switch result {
+            case .success:
+                resultTextView.text = "✅ Validation successful. JSON is valid according to the schema."
+                resultTextView.textColor = .systemGreen
+            case .failure(let errors):
+                let errorText = errors.errors.map { "❌ \($0.displayDescription)" }.joined(separator: "\n\n")
+                resultTextView.text = "Validation failed with \(errors.errors.count) error(s):\n\n\(errorText)"
+                resultTextView.textColor = .systemRed
+            }
         }
     }
 }

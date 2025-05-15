@@ -1,0 +1,116 @@
+{
+  "type": "table",
+  "required": ["person"],
+  "properties": {
+    "person": {
+      "type": "table",
+      "required": ["first_name", "last_name", "age"],
+      "properties": {
+        "first_name": {
+          "type": "string"
+        },
+        "last_name": {
+          "type": "string"
+        },
+        "age": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120
+        },
+        "height": {
+          "type": "float"
+        },
+        "is_employee": {
+          "type": "boolean"
+        },
+        "contact": {
+          "type": "table",
+          "required": ["email"],
+          "properties": {
+            "email": {
+              "type": "string",
+              "pattern": "^[^@]+@[^@]+\\.[^@]+$"
+            },
+            "phone": {
+              "type": "string"
+            },
+            "preferred_contact": {
+              "type": "string",
+              "enum": ["email", "phone"]
+            }
+          }
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "table",
+            "required": ["street", "city"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["home", "work"]
+              },
+              "street": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "state": {
+                "type": "string"
+              },
+              "zip": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "is_primary": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "employment": {
+          "type": "table",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "department": {
+              "type": "string"
+            },
+            "start_date": {
+              "type": "date"
+            },
+            "salary": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "preferences": {
+          "type": "table",
+          "properties": {
+            "theme": {
+              "type": "string",
+              "enum": ["light", "dark", "system"]
+            },
+            "notifications": {
+              "type": "boolean"
+            },
+            "two_factor_auth": {
+              "type": "boolean"
+            },
+            "languages": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

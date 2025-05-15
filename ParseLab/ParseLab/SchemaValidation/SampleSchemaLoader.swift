@@ -13,13 +13,16 @@ class SampleSchemaLoader {
     
     // List of available sample schemas
     let availableSampleSchemas = [
-        "sample-schema.json"
+        "sample-schema.json",
+        "test-schema.json"
     ]
     
     // List of sample JSON files for testing
     let availableSampleFiles = [
         "valid-person.json",
-        "invalid-person.json"
+        "invalid-person.json",
+        "sample-person.toml",
+        "test-validation.toml"
     ]
     
     /// Load a sample schema by name

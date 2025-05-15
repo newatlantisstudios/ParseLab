@@ -70,7 +70,7 @@ class SimpleModalEditor: UIViewController {
         
         // Format button
         formatButton.translatesAutoresizingMaskIntoConstraints = false
-        formatButton.setTitle("Format JSON", for: .normal)
+        formatButton.setTitle("Edit", for: .normal)
         formatButton.setTitleColor(UIColor(red: 0.2, green: 0.3, blue: 0.8, alpha: 1.0), for: .normal)
         formatButton.addTarget(self, action: #selector(formatButtonTapped), for: .touchUpInside)
         

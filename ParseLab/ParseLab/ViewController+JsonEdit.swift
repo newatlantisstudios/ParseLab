@@ -361,7 +361,7 @@ extension ViewController {
         }
     }
     
-    // Save changes made to JSON
+    // Save changes made to JSON, YAML, or TOML
     @objc internal func saveJsonChanges() {
         guard isEditMode else {
             return
@@ -373,8 +373,18 @@ extension ViewController {
             return
         }
         
+        // Determine which format we're working with
+        let formatName: String
+        if isYAMLFile {
+            formatName = "YAML"
+        } else if isTOMLFile {
+            formatName = "TOML"
+        } else {
+            formatName = "JSON"
+        }
+        
         // Check if this is a sample file (which is read-only)
-        let isSampleFile = currentFileUrl?.absoluteString.contains("/sample.json") ?? false
+        let isSampleFile = currentFileUrl?.absoluteString.contains("/sample") ?? false
         if isSampleFile {
             // For sample files, we can't save to the original location but we can update the view
             showToast(message: "Sample file is read-only. Changes will be displayed but not saved permanently.", type: .warning)
@@ -383,31 +393,51 @@ extension ViewController {
             showToast(message: "No file location available. Changes will be displayed but not saved permanently.", type: .warning)
         }
         
-        // Validate JSON
+        // Validate content based on file type
         do {
-            // Check if the JSON is valid
-            let jsonData = editedText.data(using: .utf8)!
-            let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+            var jsonObject: Any
+            var attributedString: NSAttributedString
             
-            // Format the JSON to pretty-print
-            let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
-            if let prettyText = String(data: prettyData, encoding: .utf8) {
-                // First update the UI with pretty-printed version
-                let attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
-                fileContentView.attributedText = attributedString
+            if isYAMLFile {
+                // Parse YAML 
+                jsonObject = try YAMLParser.parse(editedText)
+                let yamlHighlighter = YAMLHighlighter()
+                attributedString = yamlHighlighter.highlightYAML(editedText, font: fileContentView.font)
+            } else if isTOMLFile {
+                // Parse TOML
+                jsonObject = try TOMLParser.parse(editedText)
+                let tomlHighlighter = TOMLHighlighter()
+                attributedString = tomlHighlighter.highlightTOML(editedText, font: fileContentView.font)
+            } else {
+                // Parse JSON
+                let jsonData = editedText.data(using: .utf8)!
+                jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+                
+                // Format the JSON to pretty-print
+                let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
+                let prettyText = String(data: prettyData, encoding: .utf8) ?? editedText
+                attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
             }
+            
+            // Update the UI
+            fileContentView.attributedText = attributedString
             
             // Update the stored JSON object
             self.currentJsonObject = jsonObject
             
             // Save to file if we have a valid URL and it's not a sample file
-            let isSampleFile = currentFileUrl?.absoluteString.contains("/sample.json") ?? false
             if let currentUrl = currentFileUrl, !isSampleFile {
-                saveJsonToFile(jsonObject: jsonObject, url: currentUrl)
-                showToast(message: "JSON saved successfully")
+                if isTOMLFile || isYAMLFile {
+                    // For TOML/YAML, save the raw edited text
+                    try editedText.write(to: currentUrl, atomically: true, encoding: .utf8)
+                } else {
+                    // For JSON, save with proper formatting
+                    saveJsonToFile(jsonObject: jsonObject, url: currentUrl)
+                }
+                showToast(message: "\(formatName) saved successfully")
             } else {
                 // For sample files or when no URL is available, just update the UI
-                showToast(message: "JSON validated and updated in view")
+                showToast(message: "\(formatName) validated and updated in view")
             }
             
             // Exit edit mode
@@ -420,8 +450,8 @@ extension ViewController {
             // Also hide edit mode overlay
             showEditModeUI(false)
         } catch {
-            // Show error if JSON is invalid
-            showErrorMessage("Invalid JSON: \(error.localizedDescription)")
+            // Show error if content is invalid
+            showErrorMessage("Invalid \(formatName): \(error.localizedDescription)")
         }
     }
     
@@ -515,34 +545,72 @@ extension ViewController {
          print("[LOG] cancelEditing: END")
     }
     
-    // Format JSON in the text view
+    // Format JSON, YAML, or TOML in the text view
     @objc internal func formatJson() {
-        guard let jsonText = fileContentView.text, !jsonText.isEmpty else {
+        // For TOML files, disable formatting entirely as it's causing issues
+        if isTOMLFile {
+            showToast(message: "Formatting not available for TOML files", type: .info)
+            return
+        }
+        
+        guard let textContent = fileContentView.text, !textContent.isEmpty else {
             showToast(message: "No content to format", type: .warning)
             return
         }
         
-        print("Formatting JSON content, edit mode: \(isEditMode)")
+        // Determine which format we're working with
+        let formatName: String
+        if isYAMLFile {
+            formatName = "YAML"
+        } else {
+            formatName = "JSON"
+        }
         
+        print("Formatting \(formatName) content, edit mode: \(isEditMode)")
         
         do {
-            // Parse the current content
-            let jsonData = jsonText.data(using: .utf8)!
-            let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
-            
-            // Format the JSON with pretty-printing
-            let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
-            if let prettyText = String(data: prettyData, encoding: .utf8) {
-                // Update text view with formatted JSON
-                let attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
-                fileContentView.attributedText = attributedString
+            if isYAMLFile {
+                // For YAML, we need to use the Yams parser
+                do {
+                    // Parse YAML to ensure it's valid
+                    let yamlObject = try YAMLParser.parse(textContent)
+                    
+                    // Format the YAML by converting to JSON and back
+                    let prettyJson = try YAMLParser.convertToPrettyJSON(textContent)
+                    
+                    // Update text view with formatted YAML
+                    let yamlHighlighter = YAMLHighlighter()
+                    let attributedString = yamlHighlighter.highlightYAML(textContent, font: fileContentView.font)
+                    fileContentView.attributedText = attributedString
+                    
+                    // Update stored object
+                    self.currentJsonObject = yamlObject
+                    
+                    // Show success message
+                    showToast(message: "YAML formatted successfully")
+                } catch {
+                    showErrorMessage("Cannot format invalid YAML: \(error.localizedDescription)")
+                }
+            } else {
+                // For JSON, use the standard JSONSerialization
+                // Parse the current content
+                let jsonData = textContent.data(using: .utf8)!
+                let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
                 
-                // Show success message
-                showToast(message: "JSON formatted successfully")
+                // Format the JSON with pretty-printing
+                let prettyData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
+                if let prettyText = String(data: prettyData, encoding: .utf8) {
+                    // Update text view with formatted JSON
+                    let attributedString = jsonHighlighter.highlightJSON(prettyText, font: fileContentView.font)
+                    fileContentView.attributedText = attributedString
+                    
+                    // Show success message
+                    showToast(message: "JSON formatted successfully")
+                }
             }
         } catch {
-            // Show error if JSON is invalid
-            showErrorMessage("Cannot format invalid JSON: \(error.localizedDescription)")
+            // Show error if content is invalid
+            showErrorMessage("Cannot format invalid \(formatName): \(error.localizedDescription)")
         }
     }
     

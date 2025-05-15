@@ -1,0 +1,24 @@
+# Test TOML file for schema validation
+
+title = "TOML Schema Test"
+
+[person]
+name = "John Doe"
+age = 30
+is_active = true
+email = "john@example.com"
+
+[address]
+street = "123 Main St"
+city = "Anytown"
+zip = "12345"
+coordinates = [40.7128, -74.0060]
+
+[metadata]
+created = 2025-05-14T21:45:00Z
+updated = 2025-05-14
+daily_backup_time = 03:00:00
+
+[tags]
+favorites = ["coding", "reading", "hiking"]
+categories = ["personal", "work"]

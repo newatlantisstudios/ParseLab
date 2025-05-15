@@ -33,10 +33,57 @@ extension ViewController {
             setupFileMetadataView()
         }
         
-        // Support specific JSON files and also general content types
+        // Support specific file types and also general content types
         let jsonUTType = UTType(filenameExtension: "json") ?? UTType.json
+        
+        // YAML file types
+        var yamlUTType = UTType(filenameExtension: "yaml")
+        let ymlUTType = UTType(filenameExtension: "yml")
+        
+        // TOML file type
+        var tomlUTType = UTType(filenameExtension: "toml")
+        
+        // INI file type
+        var iniUTType = UTType(filenameExtension: "ini")
+        
+        // If yamlUTType is nil, create a dynamic UTType
+        if yamlUTType == nil {
+            yamlUTType = UTType(exportedAs: "public.yaml")
+        }
+        
+        // If tomlUTType is nil, create a dynamic UTType
+        if tomlUTType == nil {
+            tomlUTType = UTType(exportedAs: "public.toml")
+        }
+        
+        // If iniUTType is nil, create a dynamic UTType
+        if iniUTType == nil {
+            iniUTType = UTType(exportedAs: "public.ini")
+        }
+        
+        // Create array of content types to support
+        var contentTypes = [jsonUTType, UTType.data, UTType.content]
+        
+        // Add YAML types if available
+        if let yamlType = yamlUTType {
+            contentTypes.append(yamlType)
+        }
+        if let ymlType = ymlUTType {
+            contentTypes.append(ymlType)
+        }
+        
+        // Add TOML type if available
+        if let tomlType = tomlUTType {
+            contentTypes.append(tomlType)
+        }
+        
+        // Add INI type if available
+        if let iniType = iniUTType {
+            contentTypes.append(iniType)
+        }
+        
         let documentPicker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [jsonUTType, UTType.data, UTType.content],
+            forOpeningContentTypes: contentTypes,
             asCopy: true
         )
         documentPicker.delegate = self
@@ -136,15 +183,28 @@ extension ViewController {
             // Store the current file URL for save operations
             self.currentFileUrl = url
             
-            // Determine if the file is JSON based on content and extension
+            // Determine if the file is JSON, YAML, TOML, or INI based on content and extension
             var isJSON = false
+            var isYAML = false
+            var isTOML = false
+            var isINI = false
             
-            if url.pathExtension.lowercased() == "json" {
+            let fileExtension = url.pathExtension.lowercased()
+            
+            if fileExtension == "json" {
                 isJSON = true
-            } else if data.count > 0, let firstChar = String(data: data.prefix(1), encoding: .utf8) {
-                // Check if content starts with { or [ (JSON indicators)
-                if firstChar == "{" || firstChar == "[" {
-                    // Further validate by attempting to parse
+            } else if fileExtension == "yaml" || fileExtension == "yml" {
+                isYAML = true
+            } else if fileExtension == "toml" {
+                isTOML = true
+            } else if fileExtension == "ini" {
+                isINI = true
+            } else if data.count > 0, let fileContent = String(data: data, encoding: .utf8) {
+                // If extension doesn't clearly indicate the type, check content
+                
+                // Check for JSON indicators (starts with { or [)
+                if let firstChar = String(data: data.prefix(1), encoding: .utf8), (firstChar == "{" || firstChar == "[") {
+                    // Further validate by attempting to parse as JSON
                     do {
                         _ = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
                         isJSON = true
@@ -153,13 +213,31 @@ extension ViewController {
                         isJSON = false
                     }
                 }
+                
+                // If not JSON, check if it might be YAML, TOML or INI
+                if !isJSON {
+                    // Use our custom YAML detection
+                    isYAML = YAMLParser.isYAML(content: fileContent)
+                    
+                    // If not YAML, check if it might be TOML
+                    if !isYAML {
+                        // Use our custom TOML detection
+                        isTOML = TOMLParser.isTOML(content: fileContent)
+                        
+                        // If not TOML, check if it might be INI
+                        if !isTOML {
+                            // Use our custom INI detection
+                            isINI = INIParser.isINI(content: fileContent)
+                        }
+                    }
+                }
             }
             
-            // Now display the content after determining if it's JSON
-            displayFileContent(url: url, data: data)
+            // Now display the content after determining file type
+            displayFileContent(url: url, data: data, isYAML: isYAML, isTOML: isTOML, isINI: isINI)
             
-            // Add to recent files
-            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON)
+            // Add to recent files - treat YAML, TOML, and INI as JSON for compatibility
+            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI)
             
             // Update open button menu with new recent files list
             updateRecentFilesMenu()
@@ -197,22 +275,382 @@ extension ViewController {
     }
 
     // Display file content
-    internal func displayFileContent(url: URL, data: Data) {
+    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false) {
         print("📝 Displaying file content for: \(url.lastPathComponent)")
         let filename = url.lastPathComponent
         let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
         var displayText: String? = nil
         var textColor = UIColor.label
         
+        // Reset format flags - will be set to true if needed
+        self.isYAMLFile = false
+        self.isTOMLFile = false
+        self.isINIFile = false
+        
         // Try decoding as UTF-8 text
         if let text = String(data: data, encoding: .utf8) {
-            // Check if file is JSON based on extension or content
-            let isJsonExtension = url.pathExtension.lowercased() == "json"
+            // Check file type based on extension or content
+            let fileExtension = url.pathExtension.lowercased()
+            let isJsonExtension = fileExtension == "json"
+            let isYamlExtension = fileExtension == "yaml" || fileExtension == "yml"
+            let isTomlExtension = fileExtension == "toml"
+            let isIniExtension = fileExtension == "ini"
             let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
             let startsWithBrace = content.hasPrefix("{") && content.hasSuffix("}")
             let startsWithBracket = content.hasPrefix("[") && content.hasSuffix("]")
             
-            if isJsonExtension || startsWithBrace || startsWithBracket {
+            // Process INI files
+            if isINI || isIniExtension {
+                print("Processing as INI file")
+                do {
+                    // Try to convert INI to JSON
+                    let jsonString = try INIParser.convertToPrettyJSON(text)
+                    displayText = jsonString
+                    
+                    // Parse the converted JSON
+                    if let jsonData = jsonString.data(using: .utf8) {
+                        let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+                        self.currentJsonObject = jsonObject // Store for later use
+                        
+                        self.title = "INI: \(filename)"
+                        
+                        // Store a flag indicating this is an INI file
+                        self.isINIFile = true
+                        
+                        // Reset navigation path to root
+                        self.currentPath = ["$"]
+                        self.jsonPathNavigator.updatePath(self.currentPath)
+                        
+                        // Display the INI with syntax highlighting
+                        if let boundedTextView = self.fileContentView as? BoundedTextView {
+                            print("[DEBUG] displayFileContent: Updating existing BoundedTextView with INI.")
+                            
+                            // Use INI highlighter directly on the original INI
+                            let iniHighlighter = INIHighlighter()
+                            let attributedString = iniHighlighter.highlightINI(text, font: boundedTextView.font)
+                            
+                            // Safely update the attributed text and verify it's not nil
+                            if attributedString.length > 0 {
+                                boundedTextView.attributedText = attributedString
+                            } else {
+                                // Fallback to plain text if highlighting fails
+                                boundedTextView.text = text
+                            }
+                            
+                            // Configure text view
+                            boundedTextView.isEditable = false
+                            boundedTextView.isSelectable = true
+                            boundedTextView.isUserInteractionEnabled = true
+                            boundedTextView.applyCustomCodeStyle()
+                            boundedTextView.invalidateIntrinsicContentSize()
+                            
+                            boundedTextView.isHidden = false
+                            boundedTextView.alpha = 1.0
+                            if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                                print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                                self.contentStackView.insertArrangedSubview(boundedTextView, at: 0)
+                            }
+                        } else {
+                            print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView with INI.")
+                            let iniHighlighter = INIHighlighter()
+                            let attributedString = iniHighlighter.highlightINI(text, font: self.fileContentView.font)
+                            
+                            // Safely update the attributed text
+                            if attributedString.length > 0 {
+                                self.fileContentView.attributedText = attributedString
+                            } else {
+                                // Fallback to plain text if highlighting fails
+                                self.fileContentView.text = text
+                            }
+                            self.fileContentView.isEditable = false
+                            self.fileContentView.isSelectable = true
+                            self.fileContentView.isHidden = false
+                            self.fileContentView.alpha = 1.0
+                        }
+                        
+                        // Update UI for the parsed file
+                        self.view.layoutIfNeeded()
+                        self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                        
+                        // Make all UI elements visible
+                        self.jsonActionsStackView.isHidden = false
+                        self.jsonActionsToolbar.isHidden = false
+                        self.navigationContainerView.isHidden = false
+                        self.actionsBar.isHidden = false
+                        
+                        if let rawButton = self.rawViewToggleButton {
+                            rawButton.setTitle("Raw", for: .normal)
+                            rawButton.isHidden = false
+                        }
+                        
+                        if let editButton = self.editToggleButton {
+                            editButton.setTitle("Edit", for: .normal)
+                            editButton.isEnabled = true
+                            editButton.isHidden = false
+                        }
+                        
+                        if let saveButton = self.saveButton {
+                            saveButton.isHidden = true
+                        }
+                        
+                        if let cancelButton = self.cancelButton {
+                            cancelButton.isHidden = true
+                        }
+                        
+                        self.isMinimapVisible = true
+                        print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (INI handling), isLoaded: true")
+                        self.updateUIVisibilityForJsonLoaded(true)
+                        return // Exit early as we've handled the INI display
+                    }
+                } catch {
+                    // Could not parse or convert INI
+                    print("Error processing INI: \(error)")
+                    displayText = text
+                    textColor = .label
+                    DispatchQueue.main.async { [weak self] in
+                         guard let self = self else { return }
+                        self.title = "INI (Error): \(filename)"
+                         self.fileContentView.text = displayText
+                         self.fileContentView.textColor = textColor
+                         self.fileContentView.isEditable = false
+                         self.fileContentView.isHidden = false
+                         self.fileContentView.alpha = 1.0
+                         self.currentJsonObject = nil
+                         print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (INI error), isLoaded: false")
+                         self.updateUIVisibilityForJsonLoaded(false)
+                    }
+                }
+            }
+            // Process TOML files
+            else if isTOML || isTomlExtension {
+                print("Processing as TOML file")
+                do {
+                    // Try to convert TOML to JSON
+                    let jsonString = try TOMLParser.convertToPrettyJSON(text)
+                    displayText = jsonString
+                    
+                    // Parse the converted JSON
+                    if let jsonData = jsonString.data(using: .utf8) {
+                        let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+                        self.currentJsonObject = jsonObject // Store for later use
+                        
+                        self.title = "TOML: \(filename)"
+                        
+                        // Store a flag indicating this is a TOML file
+                        self.isTOMLFile = true
+                        
+                        // Reset navigation path to root
+                        self.currentPath = ["$"]
+                        self.jsonPathNavigator.updatePath(self.currentPath)
+                        
+                        // Display the TOML with syntax highlighting
+                        if let boundedTextView = self.fileContentView as? BoundedTextView {
+                            print("[DEBUG] displayFileContent: Updating existing BoundedTextView with TOML.")
+                            
+                            // Use TOML highlighter directly on the original TOML
+                            let tomlHighlighter = TOMLHighlighter()
+                            let attributedString = tomlHighlighter.highlightTOML(text, font: boundedTextView.font)
+                            
+                            // Safely update the attributed text and verify it's not nil
+                            if attributedString.length > 0 {
+                                boundedTextView.attributedText = attributedString
+                            } else {
+                                // Fallback to plain text if highlighting fails
+                                boundedTextView.text = text
+                            }
+                            
+                            // Configure text view
+                            boundedTextView.isEditable = false
+                            boundedTextView.isSelectable = true
+                            boundedTextView.isUserInteractionEnabled = true
+                            boundedTextView.applyCustomCodeStyle()
+                            boundedTextView.invalidateIntrinsicContentSize()
+                            
+                            boundedTextView.isHidden = false
+                            boundedTextView.alpha = 1.0
+                            if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                                print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                                self.contentStackView.insertArrangedSubview(boundedTextView, at: 0)
+                            }
+                        } else {
+                            print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView with TOML.")
+                            let tomlHighlighter = TOMLHighlighter()
+                            let attributedString = tomlHighlighter.highlightTOML(text, font: self.fileContentView.font)
+                            
+                            // Safely update the attributed text
+                            if attributedString.length > 0 {
+                                self.fileContentView.attributedText = attributedString
+                            } else {
+                                // Fallback to plain text if highlighting fails
+                                self.fileContentView.text = text
+                            }
+                            self.fileContentView.isEditable = false
+                            self.fileContentView.isSelectable = true
+                            self.fileContentView.isHidden = false
+                            self.fileContentView.alpha = 1.0
+                        }
+                        
+                        // Update UI for the parsed file
+                        self.view.layoutIfNeeded()
+                        self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                        
+                        // Make all UI elements visible
+                        self.jsonActionsStackView.isHidden = false
+                        self.jsonActionsToolbar.isHidden = false
+                        self.navigationContainerView.isHidden = false
+                        self.actionsBar.isHidden = false
+                        
+                        if let rawButton = self.rawViewToggleButton {
+                            rawButton.setTitle("Raw", for: .normal)
+                            rawButton.isHidden = false
+                        }
+                        
+                        if let editButton = self.editToggleButton {
+                            editButton.setTitle("Edit", for: .normal)
+                            editButton.isEnabled = true
+                            editButton.isHidden = false
+                        }
+                        
+                        if let saveButton = self.saveButton {
+                            saveButton.isHidden = true
+                        }
+                        
+                        if let cancelButton = self.cancelButton {
+                            cancelButton.isHidden = true
+                        }
+                        
+                        self.isMinimapVisible = true
+                        print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (TOML handling), isLoaded: true")
+                        self.updateUIVisibilityForJsonLoaded(true)
+                        return // Exit early as we've handled the TOML display
+                    }
+                } catch {
+                    // Could not parse or convert TOML
+                    print("Error processing TOML: \(error)")
+                    displayText = text
+                    textColor = .label
+                    DispatchQueue.main.async { [weak self] in
+                         guard let self = self else { return }
+                        self.title = "TOML (Error): \(filename)"
+                         self.fileContentView.text = displayText
+                         self.fileContentView.textColor = textColor
+                         self.fileContentView.isEditable = false
+                         self.fileContentView.isHidden = false
+                         self.fileContentView.alpha = 1.0
+                         self.currentJsonObject = nil
+                         print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (TOML error), isLoaded: false")
+                         self.updateUIVisibilityForJsonLoaded(false)
+                    }
+                }
+            } 
+            // Process YAML files
+            else if isYAML || isYamlExtension {
+                print("Processing as YAML file")
+                do {
+                    // Try to convert YAML to JSON
+                    let jsonString = try YAMLParser.convertToPrettyJSON(text)
+                    displayText = jsonString
+                    
+                    // Parse the converted JSON
+                    if let jsonData = jsonString.data(using: .utf8) {
+                        let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+                        self.currentJsonObject = jsonObject // Store for later use
+                        
+                        self.title = "YAML: \(filename)"
+                        
+                        // Store a flag indicating this is a YAML file
+                        self.isYAMLFile = true
+                        
+                        // Reset navigation path to root
+                        self.currentPath = ["$"]
+                        self.jsonPathNavigator.updatePath(self.currentPath)
+                        
+                        // Display the converted YAML as JSON
+                        if let boundedTextView = self.fileContentView as? BoundedTextView {
+                            print("[DEBUG] displayFileContent: Updating existing BoundedTextView with YAML->JSON.")
+                            
+                            // Use YAML highlighter directly on the original YAML
+                            let yamlHighlighter = YAMLHighlighter()
+                            let attributedString = yamlHighlighter.highlightYAML(text, font: boundedTextView.font)
+                            boundedTextView.attributedText = attributedString
+                            
+                            // Configure text view
+                            boundedTextView.isEditable = false
+                            boundedTextView.isSelectable = true
+                            boundedTextView.isUserInteractionEnabled = true
+                            boundedTextView.applyCustomCodeStyle()
+                            boundedTextView.invalidateIntrinsicContentSize()
+                            
+                            boundedTextView.isHidden = false
+                            boundedTextView.alpha = 1.0
+                            if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                                print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                                self.contentStackView.insertArrangedSubview(boundedTextView, at: 0)
+                            }
+                        } else {
+                            print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView with YAML.")
+                            let yamlHighlighter = YAMLHighlighter()
+                            let attributedString = yamlHighlighter.highlightYAML(text, font: self.fileContentView.font)
+                            self.fileContentView.attributedText = attributedString
+                            self.fileContentView.isEditable = false
+                            self.fileContentView.isSelectable = true
+                            self.fileContentView.isHidden = false
+                            self.fileContentView.alpha = 1.0
+                        }
+                        
+                        // Update UI for the parsed file
+                        self.view.layoutIfNeeded()
+                        self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                        
+                        // Make all UI elements visible
+                        self.jsonActionsStackView.isHidden = false
+                        self.jsonActionsToolbar.isHidden = false
+                        self.navigationContainerView.isHidden = false
+                        self.actionsBar.isHidden = false
+                        
+                        if let rawButton = self.rawViewToggleButton {
+                            rawButton.setTitle("Raw", for: .normal)
+                            rawButton.isHidden = false
+                        }
+                        
+                        if let editButton = self.editToggleButton {
+                            editButton.setTitle("Edit", for: .normal)
+                            editButton.isEnabled = true
+                            editButton.isHidden = false
+                        }
+                        
+                        if let saveButton = self.saveButton {
+                            saveButton.isHidden = true
+                        }
+                        
+                        if let cancelButton = self.cancelButton {
+                            cancelButton.isHidden = true
+                        }
+                        
+                        self.isMinimapVisible = true
+                        print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (YAML handling), isLoaded: true")
+                        self.updateUIVisibilityForJsonLoaded(true)
+                        return // Exit early as we've handled the YAML display
+                    }
+                } catch {
+                    // Could not parse or convert YAML
+                    print("Error processing YAML: \(error)")
+                    displayText = text
+                    textColor = .label
+                    DispatchQueue.main.async { [weak self] in
+                         guard let self = self else { return }
+                        self.title = "YAML (Error): \(filename)"
+                         self.fileContentView.text = displayText
+                         self.fileContentView.textColor = textColor
+                         self.fileContentView.isEditable = false
+                         self.fileContentView.isHidden = false
+                         self.fileContentView.alpha = 1.0
+                         self.currentJsonObject = nil
+                         print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (YAML error), isLoaded: false")
+                         self.updateUIVisibilityForJsonLoaded(false)
+                    }
+                }
+            } else if isJsonExtension || startsWithBrace || startsWithBracket {
                 print("Processing as JSON file")
                 do {
                     // Validate and pretty-print JSON
@@ -421,6 +859,66 @@ extension ViewController {
     // Load sample JSON file
     @objc internal func loadSampleButtonTapped() {
         print("[ACTION LOG] loadSampleButtonTapped called!")
+        
+        // Show a menu with sample file options
+        let actionSheet = UIAlertController(title: "Choose a Sample File", message: nil, preferredStyle: .actionSheet)
+        
+        // Add JSON file option
+        actionSheet.addAction(UIAlertAction(title: "Sample JSON", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample", extension: "json")
+        })
+        
+        // Add YAML config file option
+        actionSheet.addAction(UIAlertAction(title: "Sample YAML Config", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-config", extension: "yaml")
+        })
+        
+        // Add YAML person file option
+        actionSheet.addAction(UIAlertAction(title: "Sample YAML Person", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "valid-person", extension: "yaml")
+        })
+        
+        // Add TOML config file option
+        actionSheet.addAction(UIAlertAction(title: "Sample TOML Config", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-config", extension: "toml")
+        })
+        
+        // Add TOML person file option
+        actionSheet.addAction(UIAlertAction(title: "Sample TOML Person", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-person", extension: "toml")
+        })
+        
+        // Add TOML validation test file option
+        actionSheet.addAction(UIAlertAction(title: "TOML Validation Test", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "test-validation", extension: "toml")
+        })
+        
+        // Add INI config file option
+        actionSheet.addAction(UIAlertAction(title: "Sample INI Config", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-config", extension: "ini")
+        })
+        
+        // Add INI person file option
+        actionSheet.addAction(UIAlertAction(title: "Sample INI Person", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-person", extension: "ini")
+        })
+        
+        // Add cancel option
+        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        // Present the menu
+        if let popoverController = actionSheet.popoverPresentationController {
+            // For iPad support
+            popoverController.sourceView = self.view
+            popoverController.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+            popoverController.permittedArrowDirections = []
+        }
+        
+        present(actionSheet, animated: true)
+    }
+    
+    // Load a specific sample file
+    private func loadSampleFile(name: String, extension fileExtension: String) {
         // Don't set up file metadata view here - let the natural flow handle it
         // Hide file metadata view when loading a new file if it exists
         if fileMetadataView != nil {
@@ -450,25 +948,46 @@ extension ViewController {
             
             fileMetadataVisible = false
         }
-        // Get the URL to the sample.json file in the app bundle
+        
+        // Get the URL to the sample file in the app bundle
         // First try with no subdirectory, then try with subdirectory
-        var sampleJsonURL = Bundle.main.url(forResource: "sample", withExtension: "json")
-        if sampleJsonURL == nil {
+        var sampleFileURL = Bundle.main.url(forResource: name, withExtension: fileExtension)
+        if sampleFileURL == nil {
             // Try looking in SampleFiles directory
-            sampleJsonURL = Bundle.main.url(forResource: "sample", withExtension: "json", subdirectory: "SampleFiles")
+            sampleFileURL = Bundle.main.url(forResource: name, withExtension: fileExtension, subdirectory: "SampleFiles")
         }
         
-        if let sampleJsonURL = sampleJsonURL {
+        if let sampleFileURL = sampleFileURL {
             do {
-                // Load the sample JSON content
-                let data = try Data(contentsOf: sampleJsonURL)
+                // Load the sample file content
+                let data = try Data(contentsOf: sampleFileURL)
                 
+                // Check if it's a YAML, TOML, or INI file
+                let isYAML = fileExtension.lowercased() == "yaml" || fileExtension.lowercased() == "yml"
+                let isTOML = fileExtension.lowercased() == "toml"
+                let isINI = fileExtension.lowercased() == "ini"
+                
+                if isYAML {
+                    // Display as YAML
+                    displayFileContent(url: sampleFileURL, data: data, isYAML: true)
+                    return
+                } else if isTOML {
+                    // Display as TOML
+                    displayFileContent(url: sampleFileURL, data: data, isTOML: true)
+                    return
+                } else if isINI {
+                    // Display as INI
+                    displayFileContent(url: sampleFileURL, data: data, isINI: true)
+                    return
+                }
+                
+                // For JSON, continue with the existing flow
                 // Parse the JSON to make sure it's valid
                 let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
                 
                 // Note: Sample file URL is read-only (in bundle)
                 // We'll set it but inform user they can't save changes to it
-                self.currentFileUrl = sampleJsonURL
+                self.currentFileUrl = sampleFileURL
                 self.currentJsonObject = jsonObject
                 
                 // Create the pretty-printed version of the JSON

@@ -1,0 +1,55 @@
+# Valid person information in YAML format
+person:
+  first_name: John
+  last_name: Doe
+  age: 30
+  is_employed: true
+  email: john.doe@example.com
+  
+  # Contact information
+  contact:
+    phone: "+1-555-123-4567"
+    address:
+      street: "123 Main St"
+      city: "Anytown"
+      state: "CA"
+      zip: "12345"
+      country: "USA"
+  
+  # Skills with proficiency levels
+  skills:
+    - name: "Programming"
+      level: "Expert"
+      years: 8
+    - name: "Data Analysis"
+      level: "Intermediate"
+      years: 5
+    - name: "Design"
+      level: "Beginner"
+      years: 2
+  
+  # Education history
+  education:
+    - institution: "University of Technology"
+      degree: "Bachelor of Science"
+      field: "Computer Science"
+      graduation_year: 2015
+    - institution: "Online Academy"
+      degree: "Certificate"
+      field: "Machine Learning"
+      graduation_year: 2018
+  
+  # Additional information
+  hobbies:
+    - Reading
+    - Hiking
+    - Photography
+  
+  languages:
+    - name: "English"
+      fluency: "Native"
+    - name: "Spanish"
+      fluency: "Intermediate"
+  
+  # References are null/not provided
+  references: null

@@ -29,6 +29,9 @@ class ViewController: UIViewController {
     internal var isRawViewMode = false
     internal var isEditMode = false
     internal var isTreeViewVisible: Bool = false
+    internal var isYAMLFile: Bool = false
+    internal var isTOMLFile: Bool = false
+    internal var isINIFile: Bool = false
     
     // Search results
     internal var searchResults: [JSONSearchResult] = []
@@ -47,7 +50,7 @@ class ViewController: UIViewController {
     internal var openButton: UIButton = UIButton(type: .system)
     internal var loadSampleButton: UIButton = UIButton(type: .system)
     internal var validateButton: UIButton = UIButton(type: .system)
-    internal var formatJsonButton: UIButton = UIButton(type: .system)
+    // Format button removed as requested
     internal var searchToggleButton: UIButton = UIButton(type: .system)
     internal var minimapToggleButton: UIButton = UIButton(type: .system)
     internal var actionsStackView: UIStackView = UIStackView()

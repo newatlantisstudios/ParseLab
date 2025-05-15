@@ -6,6 +6,21 @@
 
 import UIKit
 
+// Extension to get parent view controller
+extension UIView {
+    var parentViewController: UIViewController? {
+        // Traverse responder chain to find view controller
+        var parentResponder: UIResponder? = self.next
+        while parentResponder != nil {
+            if let viewController = parentResponder as? UIViewController {
+                return viewController
+            }
+            parentResponder = parentResponder?.next
+        }
+        return nil
+    }
+}
+
 /// An overlay UI that appears when editing JSON content
 class EditModeOverlay: UIView, UIGestureRecognizerDelegate {
     
@@ -143,16 +158,22 @@ class EditModeOverlay: UIView, UIGestureRecognizerDelegate {
         if #available(iOS 13.0, *) {
             let imageAttachment = NSTextAttachment()
             let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
-            imageAttachment.image = UIImage(systemName: "text.alignleft", withConfiguration: config)?.withTintColor(DesignSystem.Colors.primary)
+            imageAttachment.image = UIImage(systemName: "pencil", withConfiguration: config)?.withTintColor(DesignSystem.Colors.primary)
             
             let attachmentString = NSAttributedString(attachment: imageAttachment)
+            // Set button text to "Edit" as requested
+            var formatButtonText = "Edit"
+            
             let completeString = NSMutableAttributedString(string: "")
             completeString.append(attachmentString)
-            completeString.append(NSAttributedString(string: " Format JSON"))
+            completeString.append(NSAttributedString(string: " \(formatButtonText)"))
             
             formatButton.setAttributedTitle(completeString, for: .normal)
         } else {
-            formatButton.setTitle("Format JSON", for: .normal)
+            // Set button text to "Edit" as requested
+            var formatButtonText = "Edit"
+            
+            formatButton.setTitle("Edit", for: .normal)
         }
         
         // Apply shadow and spacing

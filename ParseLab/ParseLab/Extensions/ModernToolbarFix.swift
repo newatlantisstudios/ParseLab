@@ -28,12 +28,12 @@ extension ModernToolbar {
                 }
                 
                 // Use guard to verify buttons exist but don't use conditional binding
-                guard viewController.validateButton != nil,
-                      viewController.formatJsonButton != nil else {
+                guard viewController.validateButton != nil else {
                     return
                 }
                 
-                setLeftItems([viewController.validateButton, viewController.formatJsonButton])
+                // Format button is removed, only add validate button
+                setLeftItems([viewController.validateButton])
                 
                 // Use the public getter method to access right items
                 let currentItems = getRightItems()

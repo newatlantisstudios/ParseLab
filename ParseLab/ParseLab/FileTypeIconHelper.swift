@@ -19,6 +19,8 @@ class FileTypeIconHelper {
         switch fileExtension {
         case "json":
             return "doc.text.fill"
+        case "yaml", "yml":
+            return "doc.plaintext.fill"
         case "txt", "text", "md", "markdown":
             return "doc.plaintext"
         case "csv", "xls", "xlsx":
@@ -51,6 +53,8 @@ class FileTypeIconHelper {
         switch fileExtension {
         case "json":
             return .systemBlue
+        case "yaml", "yml":
+            return .systemIndigo
         case "txt", "text", "md", "markdown":
             return .systemGray
         case "csv", "xls", "xlsx":

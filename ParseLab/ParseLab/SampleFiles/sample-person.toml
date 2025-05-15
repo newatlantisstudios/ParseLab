@@ -1,0 +1,48 @@
+# Sample person information in TOML format
+
+[person]
+first_name = "John"
+last_name = "Doe"
+age = 42
+height = 1.85  # in meters
+is_employee = true
+
+[person.contact]
+email = "john.doe@example.com"
+phone = "+1-555-123-4567"
+preferred_contact = "email"
+
+[[person.addresses]]
+type = "home"
+street = "123 Main St"
+city = "Anytown"
+state = "CA"
+zip = "12345"
+country = "USA"
+is_primary = true
+
+[[person.addresses]]
+type = "work"
+street = "456 Market St"
+city = "Somecity"
+state = "NY"
+zip = "67890"
+country = "USA"
+is_primary = false
+
+[person.employment]
+title = "Senior Developer"
+department = "Engineering"
+start_date = 2020-03-14
+salary = 120000
+
+[person.preferences]
+theme = "dark"
+notifications = true
+two_factor_auth = true
+languages = ["en", "es", "fr"]
+
+[person.emergency_contact]
+name = "Jane Doe"
+relationship = "Spouse"
+phone = "+1-555-987-6543"

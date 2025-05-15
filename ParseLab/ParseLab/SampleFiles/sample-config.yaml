@@ -1,0 +1,44 @@
+# Sample configuration file in YAML format
+app_name: ParseLab
+version: 1.0.0
+debug: true
+
+# Database configuration
+database:
+  host: localhost
+  port: 5432
+  name: app_database
+  username: admin
+  password: secure_password
+  max_connections: 100
+  timeout_seconds: 30
+
+# Feature flags
+features:
+  dark_mode: true
+  experimental: false
+  beta_features: 
+    - schema_validation
+    - syntax_highlighting
+    - auto_formatting
+
+# UI settings
+ui:
+  theme: "auto"
+  font_size: 14
+  animation_speed: 0.3
+  colors:
+    primary: "#007AFF"
+    secondary: "#5856D6"
+    background: "#FFFFFF"
+    text: "#000000"
+
+# User preferences (default)
+default_preferences:
+  auto_save: true
+  notifications: true
+  recent_files_limit: 10
+  file_types:
+    - json
+    - yaml
+    - xml

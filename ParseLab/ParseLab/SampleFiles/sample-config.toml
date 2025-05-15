@@ -1,0 +1,45 @@
+# This is a TOML document containing server configuration
+
+title = "TOML Example Configuration"
+
+[owner]
+name = "Tom Preston-Werner"
+email = "tom@example.com"
+
+[database]
+server = "192.168.1.1"
+ports = [ 8001, 8001, 8002 ]
+connection_max = 5000
+enabled = true
+
+[servers]
+
+  # Indentation is optional but helps readability
+  [servers.alpha]
+  ip = "10.0.0.1"
+  role = "frontend"
+
+  [servers.beta]
+  ip = "10.0.0.2"
+  role = "backend"
+
+[clients]
+data = [ ["gamma", "delta"], [1, 2] ]
+hosts = [
+  "alpha",
+  "omega"
+]
+
+# Line breaks and comments are permitted
+[security]
+encryption_enabled = true
+encryption_level = 4
+require_2fa = true
+allowed_origins = ["example.com", "api.example.com"]
+timeout_seconds = 300
+
+# Dates and times
+[timestamps]
+created = 2025-05-14T15:30:00Z
+expires = 2025-12-31
+daily_backup = 03:00:00

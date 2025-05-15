@@ -323,7 +323,7 @@ extension ViewController {
         print("[DEBUG] validateJsonTapped entered")
         guard let jsonObject = currentJsonObject else {
             print("[DEBUG] validateJsonTapped: currentJsonObject is nil")
-            showErrorMessage("No valid JSON loaded")
+            showErrorMessage("No valid data loaded")
             return
         }
         print("[DEBUG] validateJsonTapped: currentJsonObject is valid")
@@ -365,9 +365,12 @@ extension ViewController {
         
         analyzeJson(jsonObject)
         
+        // Determine the format based on the file type
+        let formatName = isTOMLFile ? "TOML" : (isYAMLFile ? "YAML" : (isINIFile ? "INI" : "JSON"))
+        
         let stats = """
-        JSON Validation Results:
-        • Structure is valid JSON
+        \(formatName) Validation Results:
+        • Structure is valid \(formatName)
         • Max depth: \(maxDepth)
         
         Elements:
@@ -394,8 +397,8 @@ extension ViewController {
             self.fileContentView.attributedText = attributedString
             print("[DEBUG] validateJsonTapped: fileContentView updated. New text: \(self.fileContentView.text ?? "NIL")")
             
-            // Show success toast
-            self.showToast(message: "JSON is valid", type: .success)
+            // Show success toast with appropriate format name
+            self.showToast(message: "\(formatName) is valid", type: .success)
         }
     }
     
@@ -446,7 +449,7 @@ extension ViewController {
         openButton.addTarget(self, action: #selector(openFileButtonTapped), for: .touchUpInside)
         loadSampleButton.addTarget(self, action: #selector(loadSampleButtonTapped), for: .touchUpInside)
         validateButton.addTarget(self, action: #selector(validateJsonTapped), for: .touchUpInside)
-        formatJsonButton.addTarget(self, action: #selector(formatJsonTapped), for: .touchUpInside)
+        // Format button removed as requested
         searchToggleButton.addTarget(self, action: #selector(handleSearchButtonTapped), for: .touchUpInside)
         editToggleButton?.addTarget(self, action: #selector(editButtonTapped), for: .touchUpInside)
         // rawViewToggleButton target already set in setupRawViewToggle(), no need to add duplicate handler
