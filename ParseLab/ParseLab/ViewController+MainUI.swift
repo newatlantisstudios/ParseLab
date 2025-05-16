@@ -86,7 +86,7 @@ extension ViewController {
         actionsBar.isHidden = true // Initially hidden until JSON is loaded
         self.actionsBar = actionsBar // Store reference
         
-        // Create action buttons using helper
+        // Create action buttons using helper BEFORE initializing toolbar manager
         let validateButton = createStyledToolbarButton(systemName: "checkmark.circle")
         self.validateButton = validateButton
 
@@ -99,8 +99,11 @@ extension ViewController {
         let searchButton = createStyledToolbarButton(systemName: "magnifyingglass")
         self.searchToggleButton = searchButton
         
-        // Create View Mode Buttons (Text/Tree)
+        // Create View Mode Buttons (Text/Tree) BEFORE initializing toolbar manager
         let viewModeContainer = createViewModeControl()
+        
+        // Initialize the modular toolbar manager AFTER all buttons are created
+        self.modularToolbarManager = ModularToolbarManager(viewController: self, toolbar: actionsBar)
 
         // Add buttons to actions bar - format button removed
         actionsBar.setLeftItems([validateButton, editButton])
@@ -264,6 +267,82 @@ extension ViewController {
         return viewModeContainer
     }
     
+    // Helper to create the full view mode control with both text and tree buttons
+    // This is used when restoring from CSV to JSON to ensure both buttons are present
+    func createFullViewModeControl() -> UIView {
+        let viewModeContainer = UIView()
+        viewModeContainer.translatesAutoresizingMaskIntoConstraints = false
+        viewModeContainer.backgroundColor = DesignSystem.Colors.backgroundTertiary
+        viewModeContainer.layer.cornerRadius = DesignSystem.Sizing.smallCornerRadius
+        viewModeContainer.clipsToBounds = true
+
+        let textModeButton = UIButton(type: .system)
+        textModeButton.translatesAutoresizingMaskIntoConstraints = false
+        if #available(iOS 13.0, *) {
+            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+            let icon = UIImage(systemName: "doc", withConfiguration: config)?.withRenderingMode(.alwaysTemplate)
+            textModeButton.setImage(icon, for: .normal)
+        } else { textModeButton.setTitle("T", for: .normal) }
+        textModeButton.backgroundColor = DesignSystem.Colors.primary // Initially selected
+        textModeButton.tintColor = .white
+        textModeButton.tag = 0
+        textModeButton.addTarget(self, action: #selector(buttonModeChanged(_:)), for: .touchUpInside)
+        
+        // Update the reference to the new button
+        self.textModeButton = textModeButton
+
+        let treeModeButton = UIButton(type: .system)
+        treeModeButton.translatesAutoresizingMaskIntoConstraints = false
+        if #available(iOS 13.0, *) {
+            let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .medium)
+            let icon = UIImage(systemName: "list.bullet", withConfiguration: config)?.withRenderingMode(.alwaysTemplate)
+            treeModeButton.setImage(icon, for: .normal)
+        } else { treeModeButton.setTitle("L", for: .normal) }
+        treeModeButton.setTitle("", for: .normal)
+        treeModeButton.backgroundColor = .clear
+        treeModeButton.tintColor = DesignSystem.Colors.text
+        treeModeButton.tag = 1
+        treeModeButton.addTarget(self, action: #selector(buttonModeChanged(_:)), for: .touchUpInside)
+        treeModeButton.imageView?.contentMode = .scaleAspectFit
+        
+        // Update the reference to the new button
+        self.treeModeButton = treeModeButton
+        
+        // Make sure tree button is visible and enabled
+        treeModeButton.isHidden = false
+        treeModeButton.isEnabled = true
+
+        let buttonPadding = UIEdgeInsets(top: 6, left: 16, bottom: 6, right: 16)
+        textModeButton.contentEdgeInsets = buttonPadding
+        treeModeButton.contentEdgeInsets = buttonPadding
+        
+        textModeButton.imageView?.contentMode = .scaleAspectFit
+        treeModeButton.imageView?.contentMode = .scaleAspectFit
+
+        let buttonStack = UIStackView(arrangedSubviews: [textModeButton, treeModeButton])
+        buttonStack.translatesAutoresizingMaskIntoConstraints = false
+        buttonStack.axis = .horizontal
+        buttonStack.distribution = .fillEqually
+        buttonStack.spacing = 0
+        
+        viewModeContainer.addSubview(buttonStack)
+        NSLayoutConstraint.activate([
+            buttonStack.topAnchor.constraint(equalTo: viewModeContainer.topAnchor),
+            buttonStack.bottomAnchor.constraint(equalTo: viewModeContainer.bottomAnchor),
+            buttonStack.leadingAnchor.constraint(equalTo: viewModeContainer.leadingAnchor),
+            buttonStack.trailingAnchor.constraint(equalTo: viewModeContainer.trailingAnchor)
+        ])
+        
+        // Hidden compatibility control
+        let segmentedControl = UISegmentedControl(items: ["Text", "Tree"])
+        segmentedControl.selectedSegmentIndex = 0
+        segmentedControl.isHidden = true
+        self.viewModeSegmentedControl = segmentedControl
+        viewModeContainer.addSubview(segmentedControl)
+
+        return viewModeContainer
+    }
+    
     // Method to add the file info button to the action bar
     internal func setupFileInfoButton(_ originalButton: UIView) {
             let infoView = InfoButtonView(size: 36)
@@ -282,25 +361,62 @@ extension ViewController {
     // Show or hide JSON-specific UI elements
     func updateUIVisibilityForJsonLoaded(_ isLoaded: Bool) {
         print("[UI UPDATE] updateUIVisibility called with isLoaded: \(isLoaded)")
-        actionsBar.isHidden = !isLoaded
-        pathContainer.isHidden = !isLoaded
+        
+        // Special handling for CSV files to ensure toolbar is visible
+        if isCSVFile {
+            print("[UI UPDATE] CSV file detected - ensuring toolbar stays visible")
+            actionsBar.isHidden = false
+            validateButton.isEnabled = true
+            validateButton.isHidden = false
+            editToggleButton.isEnabled = true
+            editToggleButton.isHidden = false
+            searchToggleButton.isEnabled = true
+            searchToggleButton.isHidden = false
+            
+            // Only hide path container for CSV
+            pathContainer.isHidden = !isLoaded
+        } else {
+            // Normal behavior for non-CSV files
+            actionsBar.isHidden = !isLoaded
+            pathContainer.isHidden = !isLoaded
+            
+            // When switching from CSV to non-CSV format, ensure proper view mode control is restored
+            if isLoaded && treeModeButton != nil {
+                print("[UI UPDATE] Checking view mode control for non-CSV file")
+                
+                // Ensure tree button is visible for non-CSV files
+                treeModeButton.isHidden = false
+                treeModeButton.isEnabled = true
+                
+                // Don't recreate the control, just ensure buttons are visible
+                // The ModularToolbarManager should have already set up the toolbar correctly
+                print("[UI UPDATE] Tree button ensured visible and enabled")
+            }
+        }
         
         print("[UI UPDATE] mainToolbar.isHidden: \(mainToolbar.isHidden)")
         print("[UI UPDATE] actionsBar.isHidden: \(actionsBar.isHidden)")
         print("[UI UPDATE] pathContainer.isHidden: \(pathContainer.isHidden)")
         
         // Enable/disable action buttons based on file load state
-        validateButton.isEnabled = isLoaded
+        validateButton.isEnabled = isLoaded || isCSVFile
         
         // Don't set button titles - keep them as icon-only
         
-        editToggleButton.isEnabled = isLoaded
-        searchToggleButton.isEnabled = isLoaded
+        editToggleButton.isEnabled = isLoaded || isCSVFile
+        searchToggleButton.isEnabled = isLoaded || isCSVFile
         (fileInfoButton as? InfoButtonView)?.isEnabled = isLoaded
         textModeButton.isEnabled = isLoaded
-        treeModeButton.isEnabled = isLoaded
         
-        if !isLoaded {
+        // Special handling for tree mode button with CSV files
+        if isCSVFile {
+            treeModeButton.isHidden = true
+        } else {
+            treeModeButton.isEnabled = isLoaded
+            treeModeButton.isHidden = false  // Tree button should be visible for non-CSV files when loaded
+        }
+        
+        if !isLoaded && !isCSVFile {
             searchContainerView.isHidden = true
             searchResultsTableView.isHidden = true
             print("[UI UPDATE] Search UI hidden")
@@ -324,6 +440,16 @@ extension ViewController {
         view.layoutIfNeeded()
         print("[UI UPDATE] updateUIVisibility finished")
         print("[DEBUG] contentStackView arrangedSubviews: \(contentStackView.arrangedSubviews)")
+        
+        // For CSV files, always make sure we use the dedicated toolbar manager
+        if isCSVFile {
+            // Create the CSV toolbar manager and show it
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                self.setupCSVViewControls()
+            }
+        }
+        
         // --- IMPORTANT: Never manipulate the stack arrangement of fileContentView or treeViewContainer here! ---
         // Removed recursive call to switchToTreeView/switchToTextView to prevent UI reset loop.
     }

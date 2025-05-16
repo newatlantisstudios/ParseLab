@@ -96,6 +96,16 @@ extension ViewController {
         let recentFiles = RecentFilesManager.shared.files
         guard index >= 0 && index < recentFiles.count else { return }
         
+        // Cancel any pending CSV setup if switching files
+        self.pendingCSVSetupWorkItem?.cancel()
+        self.pendingCSVSetupWorkItem = nil
+        
+        // When opening a recent file, ensure we clean up any existing CSV state
+        if self.isCSVFile {
+            print("[DEBUG] Cleaning up CSV state before opening recent file")
+            self.isCSVFile = false
+        }
+        
         let recentFile = recentFiles[index]
         
         // Check if the file still exists
@@ -135,6 +145,12 @@ extension ViewController {
     // Method called by SceneDelegate or DocumentPicker
     internal func handleFileUrl(_ url: URL) {
         print("📂 handleFileUrl called for: \(url.lastPathComponent)")
+        
+        // Clean up any existing CSV state before loading a new file
+        if self.isCSVFile {
+            print("[DEBUG] Cleaning up CSV state before handling new file")
+            self.isCSVFile = false
+        }
         
         // Hide file metadata view when loading a new file if it exists
         if fileMetadataView != nil {
@@ -183,11 +199,12 @@ extension ViewController {
             // Store the current file URL for save operations
             self.currentFileUrl = url
             
-            // Determine if the file is JSON, YAML, TOML, or INI based on content and extension
+            // Determine if the file is JSON, YAML, TOML, INI, or CSV based on content and extension
             var isJSON = false
             var isYAML = false
             var isTOML = false
             var isINI = false
+            var isCSV = false
             
             let fileExtension = url.pathExtension.lowercased()
             
@@ -199,6 +216,8 @@ extension ViewController {
                 isTOML = true
             } else if fileExtension == "ini" {
                 isINI = true
+            } else if fileExtension == "csv" {
+                isCSV = true
             } else if data.count > 0, let fileContent = String(data: data, encoding: .utf8) {
                 // If extension doesn't clearly indicate the type, check content
                 
@@ -236,8 +255,8 @@ extension ViewController {
             // Now display the content after determining file type
             displayFileContent(url: url, data: data, isYAML: isYAML, isTOML: isTOML, isINI: isINI)
             
-            // Add to recent files - treat YAML, TOML, and INI as JSON for compatibility
-            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI)
+            // Add to recent files - treat YAML, TOML, INI, and CSV as JSON for compatibility
+            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI || isCSV)
             
             // Update open button menu with new recent files list
             updateRecentFilesMenu()
@@ -250,11 +269,13 @@ extension ViewController {
             // Before scheduling the async block, ensure the default mode is text view
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 guard let self = self else { return }
+                print("[DEBUG] AsyncAfter block executing - isCSVFile: \(self.isCSVFile)")
                 // Make sure JSON-specific UI elements visible
                 self.jsonActionsStackView.isHidden = false
                 self.jsonActionsToolbar.isHidden = false
                 self.navigationContainerView.isHidden = false
                 self.actionsBar.isHidden = false
+                print("[DEBUG] Actions bar hidden after async: \(self.actionsBar.isHidden)")
                 print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (asyncAfter .1s), isLoaded: true")
                 self.updateUIVisibilityForJsonLoaded(true)
                 // Only restore the text view if the tree view is not visible
@@ -275,7 +296,7 @@ extension ViewController {
     }
 
     // Display file content
-    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false) {
+    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false, isCSV: Bool = false) {
         print("📝 Displaying file content for: \(url.lastPathComponent)")
         let filename = url.lastPathComponent
         let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
@@ -287,6 +308,43 @@ extension ViewController {
         self.isTOMLFile = false
         self.isINIFile = false
         
+        // Check file extension to determine if we're switching to CSV
+        let fileExtension = url.pathExtension.lowercased()
+        let isCsvExtension = fileExtension == "csv"
+        
+        // Check if we need to reset CSV state at the very beginning
+        let wasCSVFile = self.isCSVFile
+        
+        // If we're switching away from a CSV file, reset the flag immediately
+        if wasCSVFile && !isCSV && !isCsvExtension {
+            // Cancel any pending CSV setup operations
+            self.pendingCSVSetupWorkItem?.cancel()
+            self.pendingCSVSetupWorkItem = nil
+            
+            // Reset the flag FIRST to prevent interference with JSON UI updates
+            self.isCSVFile = false
+            
+            // We're switching from CSV to another format
+            print("[DEBUG] Switching from CSV to another format - resetting isCSVFile flag")
+            print("[DEBUG] Toolbar will be configured when processing the new file type")
+        }
+        
+        // Restore normal tree button visibility for non-CSV files
+        if let treeButton = treeModeButton {
+            // If it's a CSV file, hide the tree button (checked later)
+            // For non-CSV files, show the tree button now
+            treeButton.isHidden = false
+            
+            // Make sure it's enabled
+            treeButton.isEnabled = true
+            
+            // Reset appearance if needed
+            if treeButton.backgroundColor != .clear {
+                treeButton.backgroundColor = .clear
+                treeButton.tintColor = DesignSystem.Colors.text
+            }
+        }
+        
         // Try decoding as UTF-8 text
         if let text = String(data: data, encoding: .utf8) {
             // Check file type based on extension or content
@@ -295,13 +353,160 @@ extension ViewController {
             let isYamlExtension = fileExtension == "yaml" || fileExtension == "yml"
             let isTomlExtension = fileExtension == "toml"
             let isIniExtension = fileExtension == "ini"
+            let isCsvExtension = fileExtension == "csv"
             let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
             let startsWithBrace = content.hasPrefix("{") && content.hasSuffix("}")
             let startsWithBracket = content.hasPrefix("[") && content.hasSuffix("]")
             
+            // Process CSV files
+            if isCSV || isCsvExtension {
+                print("[DEBUG] Processing as CSV file - Extension: \(isCsvExtension), isCSV flag: \(isCSV)")
+                
+                // Set flag indicating this is a CSV file and setup CSV mode
+                self.isCSVFile = true
+                
+                // Just hide the tree button and let setupCSVViewControls handle the Table View button
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    
+                    print("[DEBUG] Initial processing for CSV file - hiding tree button")
+                    
+                    // Hide the tree button if it exists
+                    if let treeButton = self.treeModeButton {
+                        treeButton.isHidden = true
+                    }
+                    
+                    // We'll let setupCSVViewControls handle the actual table view button creation
+                    // This ensures consistent placement of the button in the toolbar
+                }
+                
+                
+                
+                // Make sure tree mode button has been set up
+                if treeModeButton == nil {
+                    // Try to find it through view hierarchy inspection
+                    for subview in view.subviews {
+                        if let toolbar = subview as? UIView, toolbar == actionsBar {
+                            for item in toolbar.subviews {
+                                if let btn = item as? UIButton, btn.tag == 1 {
+                                    treeModeButton = btn
+                                    break
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Try to parse CSV
+                let csvDocument = CSVParser.parse(csvString: text, filePath: url)
+                self.currentCSVDocument = csvDocument
+                
+                // Set the title
+                self.title = "CSV: \(filename)"
+                
+                // Display the CSV with syntax highlighting in text view
+                if let boundedTextView = self.fileContentView as? BoundedTextView {
+                    print("[DEBUG] displayFileContent: Updating existing BoundedTextView with CSV.")
+                    
+                    // Use CSV highlighter
+                    let csvHighlighter = CSVHighlighter()
+                    let attributedString = csvHighlighter.highlightCSV(text, font: boundedTextView.font)
+                    
+                    // Make sure content stack view is visible and properly set up
+                    self.contentStackView.isHidden = false
+                    self.contentStackView.alpha = 1.0
+                    
+                    // Update the text view
+                    boundedTextView.attributedText = attributedString
+                    boundedTextView.isEditable = false
+                    boundedTextView.isSelectable = true
+                    boundedTextView.isUserInteractionEnabled = true
+                    boundedTextView.applyCustomCodeStyle()
+                    boundedTextView.invalidateIntrinsicContentSize()
+                    
+                    boundedTextView.isHidden = false
+                    boundedTextView.alpha = 1.0
+                    
+                    if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                        print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                        self.contentStackView.insertArrangedSubview(boundedTextView, at: 0)
+                    }
+                    
+                    // Make sure we can see the text content
+                    boundedTextView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                    
+                    // Force the layout to update with constraints properly applied
+                    self.view.setNeedsLayout()
+                    self.view.layoutIfNeeded()
+                } else {
+                    print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView with CSV.")
+                    let csvHighlighter = CSVHighlighter()
+                    let attributedString = csvHighlighter.highlightCSV(text, font: self.fileContentView.font)
+                    
+                    // Make sure content stack view is visible and properly set up
+                    self.contentStackView.isHidden = false
+                    self.contentStackView.alpha = 1.0
+                    
+                    // Update the text view
+                    self.fileContentView.attributedText = attributedString
+                    self.fileContentView.isEditable = false
+                    self.fileContentView.isSelectable = true
+                    self.fileContentView.isHidden = false
+                    self.fileContentView.alpha = 1.0
+                    
+                    // Make sure we can see the text content
+                    self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                    
+                    // Force the layout to update with constraints properly applied
+                    self.view.setNeedsLayout()
+                    self.view.layoutIfNeeded()
+                }
+                
+                // Set up CSV-specific controls with multiple staged fixes
+                print("[DEBUG] Scheduling mega CSV toolbar fix sequence")
+                
+                // First hide the tree button immediately
+                if let treeButton = self.treeModeButton {
+                    treeButton.isHidden = true
+                }
+                
+                // First ensure key buttons are visible immediately
+                self.validateButton.isHidden = false
+                self.validateButton.isEnabled = true
+                self.searchToggleButton.isHidden = false
+                self.searchToggleButton.isEnabled = true
+                self.editToggleButton.isHidden = false
+                self.editToggleButton.isEnabled = true
+                
+                // Cancel any previous pending CSV setup
+                self.pendingCSVSetupWorkItem?.cancel()
+                
+                // Setup CSV controls with the new dedicated toolbar manager
+                let csvSetupWorkItem = DispatchWorkItem { [weak self] in
+                    guard let self = self else { return }
+                    // Only proceed if we're still showing a CSV file
+                    guard self.isCSVFile else {
+                        print("[DEBUG] CSV setup cancelled - no longer showing CSV file")
+                        return
+                    }
+                    print("[DEBUG] Now calling setupCSVViewControls from main location with dedicated toolbar")
+                    self.setupCSVViewControls()
+                }
+                self.pendingCSVSetupWorkItem = csvSetupWorkItem
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: csvSetupWorkItem)
+                
+                return // Exit early as we've handled the CSV display
+            }
+            
+            // YAML and TOML processing will happen later in the code
+            
             // Process INI files
             if isINI || isIniExtension {
-                print("Processing as INI file")
+                print("[DEBUG] Processing as INI file")
+                self.isINIFile = true
+                
+                // Configure toolbar for INI
+                self.modularToolbarManager?.configureForFileType(.ini)
                 do {
                     // Try to convert INI to JSON
                     let jsonString = try INIParser.convertToPrettyJSON(text)
@@ -423,7 +628,11 @@ extension ViewController {
             }
             // Process TOML files
             else if isTOML || isTomlExtension {
-                print("Processing as TOML file")
+                print("[DEBUG] Processing as TOML file")
+                self.isTOMLFile = true
+                
+                // Configure toolbar for TOML
+                self.modularToolbarManager?.configureForFileType(.toml)
                 do {
                     // Try to convert TOML to JSON
                     let jsonString = try TOMLParser.convertToPrettyJSON(text)
@@ -545,7 +754,11 @@ extension ViewController {
             } 
             // Process YAML files
             else if isYAML || isYamlExtension {
-                print("Processing as YAML file")
+                print("[DEBUG] Processing as YAML file")
+                self.isYAMLFile = true
+                
+                // Configure toolbar for YAML
+                self.modularToolbarManager?.configureForFileType(.yaml)
                 do {
                     // Try to convert YAML to JSON
                     let jsonString = try YAMLParser.convertToPrettyJSON(text)
@@ -651,7 +864,10 @@ extension ViewController {
                     }
                 }
             } else if isJsonExtension || startsWithBrace || startsWithBracket {
-                print("Processing as JSON file")
+                print("[DEBUG] Processing as JSON file")
+                
+                // Configure toolbar for JSON
+                self.modularToolbarManager?.configureForFileType(.json)
                 do {
                     // Validate and pretty-print JSON
                     let jsonObject = try JSONSerialization.jsonObject(with: data, options: .fragmentsAllowed)
@@ -903,6 +1119,11 @@ extension ViewController {
             self?.loadSampleFile(name: "sample-person", extension: "ini")
         })
         
+        // Add CSV data file option
+        actionSheet.addAction(UIAlertAction(title: "Sample CSV Data", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-data", extension: "csv")
+        })
+        
         // Add cancel option
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         
@@ -919,6 +1140,9 @@ extension ViewController {
     
     // Load a specific sample file
     private func loadSampleFile(name: String, extension fileExtension: String) {
+        // Cancel any pending CSV setup if switching files
+        self.pendingCSVSetupWorkItem?.cancel()
+        self.pendingCSVSetupWorkItem = nil
         // Don't set up file metadata view here - let the natural flow handle it
         // Hide file metadata view when loading a new file if it exists
         if fileMetadataView != nil {
@@ -927,23 +1151,23 @@ extension ViewController {
             // Update file info button if it exists
             if fileInfoButton != nil {
                 if #available(iOS 13.0, *) {
-                let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
-                let icon = UIImage(systemName: "info.circle", withConfiguration: config)
+                    let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+                    let icon = UIImage(systemName: "info.circle", withConfiguration: config)
                     
-                // For our custom view
+                    // For our custom view
                     if let infoView = fileInfoButton as? InfoButtonView {
-                    infoView.updateIcon(icon)
+                        infoView.updateIcon(icon)
+                    }
+                    // For standard UIButton fallback
+                    else if let button = fileInfoButton as? UIButton {
+                        button.setImage(icon, for: .normal)
+                    }
+                } else {
+                    // Handle pre-iOS 13 case
+                    if let button = fileInfoButton as? UIButton {
+                        button.setTitle("i", for: .normal)
+                    }
                 }
-                // For standard UIButton fallback
-                else if let button = fileInfoButton as? UIButton {
-                    button.setImage(icon, for: .normal)
-                }
-            } else {
-                // Handle pre-iOS 13 case
-                if let button = fileInfoButton as? UIButton {
-                    button.setTitle("i", for: .normal)
-                }
-            }
             }
             
             fileMetadataVisible = false
@@ -962,26 +1186,111 @@ extension ViewController {
                 // Load the sample file content
                 let data = try Data(contentsOf: sampleFileURL)
                 
-                // Check if it's a YAML, TOML, or INI file
+                // Check if it's a YAML, TOML, INI, or CSV file
                 let isYAML = fileExtension.lowercased() == "yaml" || fileExtension.lowercased() == "yml"
                 let isTOML = fileExtension.lowercased() == "toml"
                 let isINI = fileExtension.lowercased() == "ini"
+                let isCSV = fileExtension.lowercased() == "csv"
                 
                 if isYAML {
+                    // Reset file type flags before loading YAML
+                    self.isCSVFile = false
+                    self.isYAMLFile = true
+                    self.isTOMLFile = false
+                    self.isINIFile = false
                     // Display as YAML
                     displayFileContent(url: sampleFileURL, data: data, isYAML: true)
                     return
                 } else if isTOML {
+                    // Reset file type flags before loading TOML
+                    self.isCSVFile = false
+                    self.isYAMLFile = false
+                    self.isTOMLFile = true
+                    self.isINIFile = false
                     // Display as TOML
                     displayFileContent(url: sampleFileURL, data: data, isTOML: true)
                     return
                 } else if isINI {
+                    // Reset file type flags before loading INI
+                    self.isCSVFile = false
+                    self.isYAMLFile = false
+                    self.isTOMLFile = false
+                    self.isINIFile = true
                     // Display as INI
                     displayFileContent(url: sampleFileURL, data: data, isINI: true)
+                    return
+                } else if isCSV {
+                    // Display as CSV
+                    // Parse the CSV file and set flags
+                    if let csvString = String(data: data, encoding: .utf8) {
+                        print("[DEBUG] Loading sample CSV file: \(sampleFileURL.lastPathComponent)")
+                        
+                        // Reset file type flags before loading CSV
+                        self.isCSVFile = true
+                        self.isYAMLFile = false
+                        self.isTOMLFile = false
+                        self.isINIFile = false
+                        
+                        // Parse the CSV data
+                        let csvDocument = CSVParser.parse(csvString: csvString, filePath: sampleFileURL)
+                        self.currentCSVDocument = csvDocument
+                        
+                        // Set the title right away
+                        self.title = "CSV: \(sampleFileURL.lastPathComponent)"
+                        
+                        // Force layout update before displaying content
+                        self.view.setNeedsLayout()
+                        self.view.layoutIfNeeded()
+                        
+                        // Display the content with a small delay to ensure UI is ready
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                            guard let self = self else { return }
+                            self.displayFileContent(url: sampleFileURL, data: data, isCSV: true)
+                            
+                            // Setup CSV controls with multiple staged fixes
+                            print("[DEBUG] Scheduling mega CSV toolbar fix sequence for sample")
+                            
+                            // First hide the tree button immediately
+                            if let treeButton = self.treeModeButton {
+                                treeButton.isHidden = true
+                            }
+                            
+                            // First ensure key buttons are visible immediately
+                            self.validateButton.isHidden = false
+                            self.validateButton.isEnabled = true
+                            self.searchToggleButton.isHidden = false
+                            self.searchToggleButton.isEnabled = true
+                            self.editToggleButton.isHidden = false
+                            self.editToggleButton.isEnabled = true
+                            
+                            // Cancel any previous pending CSV setup
+                            self.pendingCSVSetupWorkItem?.cancel()
+                            
+                            // Setup CSV controls with the new dedicated toolbar manager
+                            let csvSetupWorkItem = DispatchWorkItem { [weak self] in
+                                guard let self = self else { return }
+                                // Only proceed if we're still showing a CSV file
+                                guard self.isCSVFile else {
+                                    print("[DEBUG] CSV setup cancelled - no longer showing CSV file")
+                                    return
+                                }
+                                print("[DEBUG] Now calling setupCSVViewControls from sample location with dedicated toolbar")
+                                self.setupCSVViewControls()
+                            }
+                            self.pendingCSVSetupWorkItem = csvSetupWorkItem
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: csvSetupWorkItem)
+                        }
+                    }
                     return
                 }
                 
                 // For JSON, continue with the existing flow
+                // IMPORTANT: Reset file type flags before loading JSON
+                self.isCSVFile = false
+                self.isYAMLFile = false
+                self.isTOMLFile = false
+                self.isINIFile = false
+                
                 // Parse the JSON to make sure it's valid
                 let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
                 
@@ -1028,6 +1337,9 @@ extension ViewController {
                         self.currentPath = ["$"]
                         self.jsonPathNavigator.updatePath(self.currentPath)
                         
+                        // Configure toolbar for JSON
+                        self.modularToolbarManager?.configureForFileType(.json)
+                        
                         // Make JSON-specific UI elements visible
                         self.jsonActionsStackView.isHidden = false
                         self.jsonActionsToolbar.isHidden = false
@@ -1073,8 +1385,7 @@ extension ViewController {
                         // Apply fixes for tree view and minimap when using standard UITextView
                         self.fixTreeViewForStandardTextView()
                         
-                        // Show toast message
-                        self.showEnhancedToast(message: "Sample file is read-only", type: ToastType.info)
+                        // Don't show the read-only toast immediately on load
                     }
                 }
             } catch {
@@ -1108,6 +1419,10 @@ extension ViewController {
 extension ViewController: UIDocumentPickerDelegate {
     func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
         guard let url = urls.first else { return }
+        
+        // Cancel any pending CSV setup if switching files
+        self.pendingCSVSetupWorkItem?.cancel()
+        self.pendingCSVSetupWorkItem = nil
         
         // Ensure that the fileInfoButton is properly initialized before proceeding
         // This will be called asynchronously to let any initialization complete

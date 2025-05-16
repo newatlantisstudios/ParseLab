@@ -35,7 +35,10 @@
 - [x] YAML (.yml, .yaml)
 - [x] TOML (.toml)
 - [x] INI (.ini)
-- [ ] CSV (.csv) – table view
+- [x] CSV (.csv) – table view
+  - [x] CSV to JSON toolbar bug
+  - [x] Test type to type toolbar to find bugs
+
 - [ ] XML (.xml) – tree + raw view
 - [ ] PLIST (.plist)
 - [ ] Validation works correctly for each of type of files

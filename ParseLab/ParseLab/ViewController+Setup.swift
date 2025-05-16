@@ -131,11 +131,12 @@ extension ViewController {
     // Create a visually appealing welcome message with app features
     func createWelcomeMessage() -> NSAttributedString {
         let welcomeTitle = "Welcome to ParseLab"
-        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, and INI files"
+        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, and CSV files"
         let featuresTitle = "Features"
         let features = [
-            "• Syntax highlighting for JSON, YAML, TOML, and INI",
+            "• Syntax highlighting for JSON, YAML, TOML, INI, and CSV",
             "• Tree view for complex structures",
+            "• Table view for CSV files",
             "• JSON validation and error checking",
             "• JSON Schema validation",
             "• Search within keys and values",

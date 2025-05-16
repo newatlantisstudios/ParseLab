@@ -24,8 +24,8 @@ This document outlines the priority of upcoming features and improvements for Pa
 
 1. **Additional File Format Support**
    - XML parsing and display
-   - CSV parsing and display
-   - INI file support
+   - ✅ CSV parsing and display (implemented)
+   - ✅ INI file support (implemented)
    - Property list (plist) support
 
 2. **UI/UX Improvements**
@@ -86,3 +86,4 @@ For the next release, we're focusing on:
 3. Search improvements within tree view
 4. Basic XML support
 5. Bug fixes and UI refinements
+6. Add table view support for CSV files

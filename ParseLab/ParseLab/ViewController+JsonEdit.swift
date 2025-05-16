@@ -383,16 +383,6 @@ extension ViewController {
             formatName = "JSON"
         }
         
-        // Check if this is a sample file (which is read-only)
-        let isSampleFile = currentFileUrl?.absoluteString.contains("/sample") ?? false
-        if isSampleFile {
-            // For sample files, we can't save to the original location but we can update the view
-            showToast(message: "Sample file is read-only. Changes will be displayed but not saved permanently.", type: .warning)
-        } else if currentFileUrl == nil {
-            // No file URL, can't save to a file
-            showToast(message: "No file location available. Changes will be displayed but not saved permanently.", type: .warning)
-        }
-        
         // Validate content based on file type
         do {
             var jsonObject: Any
@@ -425,6 +415,9 @@ extension ViewController {
             // Update the stored JSON object
             self.currentJsonObject = jsonObject
             
+            // Check if this is a sample file (which is read-only)
+            let isSampleFile = currentFileUrl?.absoluteString.contains("/sample") ?? false
+            
             // Save to file if we have a valid URL and it's not a sample file
             if let currentUrl = currentFileUrl, !isSampleFile {
                 if isTOMLFile || isYAMLFile {
@@ -437,7 +430,11 @@ extension ViewController {
                 showToast(message: "\(formatName) saved successfully")
             } else {
                 // For sample files or when no URL is available, just update the UI
-                showToast(message: "\(formatName) validated and updated in view")
+                if isSampleFile {
+                    showToast(message: "Sample file is read-only. Changes displayed but not saved permanently.", type: .warning)
+                } else {
+                    showToast(message: "No file location available. Changes displayed but not saved permanently.", type: .warning)
+                }
             }
             
             // Exit edit mode

@@ -7,6 +7,45 @@
 
 import UIKit
 
+// Using local DesignSystem components
+private extension UIColor {
+    static var designSystemPrimary: UIColor {
+        return UIColor(named: "AppTheme") ?? .systemBlue
+    }
+    
+    static var designSystemBackgroundSecondary: UIColor {
+        if #available(iOS 13.0, *) {
+            return .secondarySystemBackground
+        } else {
+            return UIColor(white: 0.95, alpha: 1.0)
+        }
+    }
+}
+
+// Add applyCardStyle extension if not found elsewhere
+extension UIView {
+    @objc func applyCardStyle() {
+        // Default implementation if not available elsewhere
+        self.layer.cornerRadius = 12
+        self.layer.shadowColor = UIColor.black.withAlphaComponent(0.1).cgColor
+        self.layer.shadowOffset = CGSize(width: 0, height: 1)
+        self.layer.shadowOpacity = 1
+        self.layer.shadowRadius = 3
+        self.clipsToBounds = false
+        
+        // Adapt to dark/light mode
+        if #available(iOS 13.0, *) {
+            self.backgroundColor = UIColor.secondarySystemBackground
+            self.layer.borderWidth = 0.5
+            self.layer.borderColor = UIColor.separator.cgColor
+        } else {
+            self.backgroundColor = UIColor.white
+            self.layer.borderWidth = 0.5
+            self.layer.borderColor = UIColor.lightGray.cgColor
+        }
+    }
+}
+
 /// A lightweight, constraint-conflict-free toolbar implementation
 class SimplifiedToolbar: UIView {
     
@@ -28,8 +67,8 @@ class SimplifiedToolbar: UIView {
         self.translatesAutoresizingMaskIntoConstraints = false
         
         // Configure appearance
-        self.backgroundColor = DesignSystem.Colors.backgroundSecondary
-        self.layer.cornerRadius = DesignSystem.Sizing.cornerRadius
+        self.backgroundColor = UIColor.designSystemBackgroundSecondary
+        self.layer.cornerRadius = 12
         
         // Apply shadow
         self.layer.shadowColor = UIColor.black.cgColor
@@ -47,10 +86,10 @@ class SimplifiedToolbar: UIView {
         leftButton.translatesAutoresizingMaskIntoConstraints = false
         leftButton.setTitle(leftTitle, for: .normal)
         leftButton.setImage(leftImage, for: .normal)
-        leftButton.backgroundColor = DesignSystem.Colors.primary
+        leftButton.backgroundColor = UIColor.designSystemPrimary
         leftButton.setTitleColor(.white, for: .normal)
         leftButton.tintColor = .white
-        leftButton.layer.cornerRadius = DesignSystem.Sizing.smallCornerRadius
+        leftButton.layer.cornerRadius = 8
         leftButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 0)
         leftButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
         
@@ -59,10 +98,15 @@ class SimplifiedToolbar: UIView {
         rightButton.translatesAutoresizingMaskIntoConstraints = false
         rightButton.setTitle(rightTitle, for: .normal)
         rightButton.setImage(rightImage, for: .normal)
-        rightButton.backgroundColor = DesignSystem.Colors.backgroundTertiary
-        rightButton.setTitleColor(DesignSystem.Colors.text, for: .normal)
-        rightButton.tintColor = DesignSystem.Colors.primary
-        rightButton.layer.cornerRadius = DesignSystem.Sizing.smallCornerRadius
+        if #available(iOS 13.0, *) {
+            rightButton.backgroundColor = .tertiarySystemBackground
+            rightButton.setTitleColor(.label, for: .normal)
+        } else {
+            rightButton.backgroundColor = UIColor(white: 0.97, alpha: 1.0)
+            rightButton.setTitleColor(.black, for: .normal)
+        }
+        rightButton.tintColor = UIColor.designSystemPrimary
+        rightButton.layer.cornerRadius = 8
         rightButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -4, bottom: 0, right: 0)
         rightButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
         

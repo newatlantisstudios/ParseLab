@@ -32,6 +32,12 @@ class ViewController: UIViewController {
     internal var isYAMLFile: Bool = false
     internal var isTOMLFile: Bool = false
     internal var isINIFile: Bool = false
+    internal var isCSVFile: Bool = false
+    internal var pendingCSVSetupWorkItem: DispatchWorkItem?
+    
+    // CSV specific properties
+    internal var currentCSVDocument: CSVDocument? = nil
+    internal var isCSVTableViewEnabled: Bool = true
     
     // Search results
     internal var searchResults: [JSONSearchResult] = []
@@ -47,6 +53,9 @@ class ViewController: UIViewController {
     internal var actionsBar: ModernToolbar = ModernToolbar()
     internal var pathContainer: UIView = UIView()
     internal var editFab: UIView?
+    
+    // Modular toolbar manager
+    internal var modularToolbarManager: ModularToolbarManager?
     internal var openButton: UIButton = UIButton(type: .system)
     internal var loadSampleButton: UIButton = UIButton(type: .system)
     internal var validateButton: UIButton = UIButton(type: .system)

@@ -62,8 +62,8 @@ class ModernToolbar: UIView {
         
         // Configure main stack view with improved layout
         stackView.axis = .horizontal
-        stackView.alignment = .center
-        stackView.distribution = .fill
+        stackView.alignment = .fill  // Changed to fill to ensure proper height
+        stackView.distribution = .fillEqually
         stackView.translatesAutoresizingMaskIntoConstraints = false
         stackView.spacing = DesignSystem.Spacing.large
         stackView.isUserInteractionEnabled = true
@@ -72,21 +72,18 @@ class ModernToolbar: UIView {
         // Configure section stack views with improved settings
         [leftStackView, centerStackView, rightStackView].forEach { sectionStack in
             sectionStack.axis = .horizontal
-            sectionStack.alignment = .center
+            sectionStack.alignment = .fill  // Changed to fill to ensure buttons fill the height
             sectionStack.spacing = itemSpacing
             sectionStack.translatesAutoresizingMaskIntoConstraints = false
             sectionStack.isUserInteractionEnabled = true
         }
         
-        // Allow center stack to be compressed, outer stacks resist
-        leftStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        centerStackView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        rightStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
-        
-        // Ensure right stack view maintains its size (redundant with above, keeping for safety)
-        rightStackView.setContentCompressionResistancePriority(.required, for: .horizontal)
+        // Set equal priorities to ensure all stacks are visible
+        leftStackView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        centerStackView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
+        rightStackView.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
-        // Set hugging priorities (less important with .fill)
+        // Set hugging priorities to ensure stacks expand equally
         leftStackView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         centerStackView.setContentHuggingPriority(.defaultLow, for: .horizontal)
         rightStackView.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -221,10 +218,15 @@ class ModernToolbar: UIView {
     // MARK: - Helper Methods
     
     private func updateStackViews() {
+        print("[MODERN TOOLBAR] updateStackViews called")
+        print("[MODERN TOOLBAR] Before clear - left: \(leftStackView.arrangedSubviews.count), center: \(centerStackView.arrangedSubviews.count), right: \(rightStackView.arrangedSubviews.count)")
+        
         // Clear all stack views
         leftStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         centerStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rightStackView.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        
+        print("[MODERN TOOLBAR] After clear - left: \(leftStackView.arrangedSubviews.count), center: \(centerStackView.arrangedSubviews.count), right: \(rightStackView.arrangedSubviews.count)")
         
         // Set up spacing for the main stack and section stacks
         stackView.spacing = DesignSystem.Spacing.large
@@ -299,22 +301,28 @@ class ModernToolbar: UIView {
         }
         
         // Add items to respective stack views
+        print("[MODERN TOOLBAR] Adding \(leftItems.count) items to left stack")
         for item in leftItems {
             leftStackView.addArrangedSubview(item)
+            print("[MODERN TOOLBAR] Added to left: \(type(of: item))")
         }
         
+        print("[MODERN TOOLBAR] Adding \(centerItems.count) items to center stack")
         for item in centerItems {
             centerStackView.addArrangedSubview(item)
+            print("[MODERN TOOLBAR] Added to center: \(type(of: item))")
         }
         
+        print("[MODERN TOOLBAR] Adding \(rightItems.count) items to right stack")
         for item in rightItems {
             rightStackView.addArrangedSubview(item)
+            print("[MODERN TOOLBAR] Added to right: \(type(of: item))")
         }
         
-        // Center alignment for all stacks to better align icons
-        centerStackView.alignment = .center
-        leftStackView.alignment = .center
-        rightStackView.alignment = .center
+        print("[MODERN TOOLBAR] Final arranged subviews - left: \(leftStackView.arrangedSubviews.count), center: \(centerStackView.arrangedSubviews.count), right: \(rightStackView.arrangedSubviews.count)")
+        
+        // Set alignment for all stacks - already set to .fill above
+        // Ensure buttons are centered within their stack
         
         // Adjust spacing between items based on total item count
         let adjustedItemSpacing = totalItems > 5 ? itemSpacing : DesignSystem.Spacing.medium // Increase spacing when fewer items
@@ -335,6 +343,22 @@ class ModernToolbar: UIView {
         leftStackView.isHidden = false
         centerStackView.isHidden = false
         rightStackView.isHidden = false
+        
+        print("[MODERN TOOLBAR] Stack visibility - left: \(!leftStackView.isHidden), center: \(!centerStackView.isHidden), right: \(!rightStackView.isHidden)")
+        print("[MODERN TOOLBAR] Stack frames - left: \(leftStackView.frame), center: \(centerStackView.frame), right: \(rightStackView.frame)")
+        
+        // Debug individual items in stacks
+        print("[MODERN TOOLBAR] Left stack items debug:")
+        for (index, view) in leftStackView.arrangedSubviews.enumerated() {
+            print("  Item \(index): frame=\(view.frame), hidden=\(view.isHidden), alpha=\(view.alpha)")
+            if let button = view as? UIButton {
+                print("    Button: enabled=\(button.isEnabled), image=\(button.imageView?.image != nil)")
+            }
+        }
+        
+        // Force layout update
+        self.setNeedsLayout()
+        self.layoutIfNeeded()
     }
 }
 
