@@ -39,7 +39,7 @@
   - [x] CSV to JSON toolbar bug
   - [x] Test type to type toolbar to find bugs
 
-- [ ] XML (.xml) – tree + raw view
+- [x] XML (.xml) – tree + raw view
 - [ ] PLIST (.plist)
 - [ ] Validation works correctly for each of type of files
 
@@ -50,7 +50,11 @@
 - [ ] CSV ↔ JSON
 - [ ] Conversion UI with format picker and preview
 
+**Other**
+
 - [ ] TipJar
+- [ ] Sample buttons needs to be a list, not a bunch of buttons
+- [ ] The app needs to be aware of what file type it is in for UI text
 
 ## 🧬 **Phase 3: Advanced File Formats & Features**
 ### 💾 **Heavier Formats**

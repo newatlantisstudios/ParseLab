@@ -32,6 +32,7 @@ class ViewController: UIViewController {
     internal var isYAMLFile: Bool = false
     internal var isTOMLFile: Bool = false
     internal var isINIFile: Bool = false
+    internal var isXMLFile: Bool = false
     internal var isCSVFile: Bool = false
     internal var pendingCSVSetupWorkItem: DispatchWorkItem?
     

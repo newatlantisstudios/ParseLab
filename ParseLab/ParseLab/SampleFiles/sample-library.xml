@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<library name="City Library" established="1950">
+    <!-- Library catalog -->
+    <books>
+        <book isbn="978-0-7475-3269-9" category="fiction">
+            <title>Harry Potter and the Philosopher's Stone</title>
+            <author>J.K. Rowling</author>
+            <publishYear>1997</publishYear>
+            <publisher>Bloomsbury</publisher>
+            <price currency="USD">15.99</price>
+            <available>true</available>
+            <copies total="5" available="3"/>
+        </book>
+        <book isbn="978-0-06-112008-4" category="classic">
+            <title>To Kill a Mockingbird</title>
+            <author>Harper Lee</author>
+            <publishYear>1960</publishYear>
+            <publisher>J.B. Lippincott &amp; Co.</publisher>
+            <price currency="USD">12.99</price>
+            <available>false</available>
+            <copies total="3" available="0"/>
+        </book>
+    </books>
+    <members>
+        <member id="M001" joinDate="2020-01-15">
+            <name>Jane Smith</name>
+            <email>jane.smith@email.com</email>
+            <activeLoans>2</activeLoans>
+        </member>
+        <member id="M002" joinDate="2021-03-22">
+            <name>Bob Johnson</name>
+            <email>bob.johnson@email.com</email>
+            <activeLoans>0</activeLoans>
+        </member>
+    </members>
+    <![CDATA[
+        This is a sample library system with books and members.
+        The data is stored in XML format for easy parsing.
+    ]]>
+</library>

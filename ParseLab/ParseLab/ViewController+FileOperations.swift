@@ -46,6 +46,9 @@ extension ViewController {
         // INI file type
         var iniUTType = UTType(filenameExtension: "ini")
         
+        // XML file type
+        let xmlUTType = UTType(filenameExtension: "xml") ?? UTType.xml
+        
         // If yamlUTType is nil, create a dynamic UTType
         if yamlUTType == nil {
             yamlUTType = UTType(exportedAs: "public.yaml")
@@ -81,6 +84,9 @@ extension ViewController {
         if let iniType = iniUTType {
             contentTypes.append(iniType)
         }
+        
+        // Add XML type
+        contentTypes.append(xmlUTType)
         
         let documentPicker = UIDocumentPickerViewController(
             forOpeningContentTypes: contentTypes,
@@ -199,11 +205,12 @@ extension ViewController {
             // Store the current file URL for save operations
             self.currentFileUrl = url
             
-            // Determine if the file is JSON, YAML, TOML, INI, or CSV based on content and extension
+            // Determine if the file is JSON, YAML, TOML, INI, XML, or CSV based on content and extension
             var isJSON = false
             var isYAML = false
             var isTOML = false
             var isINI = false
+            var isXML = false
             var isCSV = false
             
             let fileExtension = url.pathExtension.lowercased()
@@ -216,6 +223,8 @@ extension ViewController {
                 isTOML = true
             } else if fileExtension == "ini" {
                 isINI = true
+            } else if fileExtension == "xml" {
+                isXML = true
             } else if fileExtension == "csv" {
                 isCSV = true
             } else if data.count > 0, let fileContent = String(data: data, encoding: .utf8) {
@@ -233,7 +242,7 @@ extension ViewController {
                     }
                 }
                 
-                // If not JSON, check if it might be YAML, TOML or INI
+                // If not JSON, check if it might be YAML, TOML, INI, or XML
                 if !isJSON {
                     // Use our custom YAML detection
                     isYAML = YAMLParser.isYAML(content: fileContent)
@@ -247,16 +256,22 @@ extension ViewController {
                         if !isTOML {
                             // Use our custom INI detection
                             isINI = INIParser.isINI(content: fileContent)
+                            
+                            // If not INI, check if it might be XML
+                            if !isINI {
+                                // Use our custom XML detection
+                                isXML = XMLParser.isXML(content: fileContent)
+                            }
                         }
                     }
                 }
             }
             
             // Now display the content after determining file type
-            displayFileContent(url: url, data: data, isYAML: isYAML, isTOML: isTOML, isINI: isINI)
+            displayFileContent(url: url, data: data, isYAML: isYAML, isTOML: isTOML, isINI: isINI, isXML: isXML)
             
-            // Add to recent files - treat YAML, TOML, INI, and CSV as JSON for compatibility
-            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI || isCSV)
+            // Add to recent files - treat YAML, TOML, INI, XML, and CSV as JSON for compatibility
+            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI || isXML || isCSV)
             
             // Update open button menu with new recent files list
             updateRecentFilesMenu()
@@ -296,7 +311,7 @@ extension ViewController {
     }
 
     // Display file content
-    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false, isCSV: Bool = false) {
+    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false, isXML: Bool = false, isCSV: Bool = false) {
         print("📝 Displaying file content for: \(url.lastPathComponent)")
         let filename = url.lastPathComponent
         let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
@@ -307,6 +322,7 @@ extension ViewController {
         self.isYAMLFile = false
         self.isTOMLFile = false
         self.isINIFile = false
+        self.isXMLFile = false
         
         // Check file extension to determine if we're switching to CSV
         let fileExtension = url.pathExtension.lowercased()
@@ -353,6 +369,7 @@ extension ViewController {
             let isYamlExtension = fileExtension == "yaml" || fileExtension == "yml"
             let isTomlExtension = fileExtension == "toml"
             let isIniExtension = fileExtension == "ini"
+            let isXmlExtension = fileExtension == "xml"
             let isCsvExtension = fileExtension == "csv"
             let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
             let startsWithBrace = content.hasPrefix("{") && content.hasSuffix("}")
@@ -751,6 +768,99 @@ extension ViewController {
                          self.updateUIVisibilityForJsonLoaded(false)
                     }
                 }
+            }
+            // Process XML files
+            else if isXML || isXmlExtension {
+                print("[DEBUG] Processing as XML file")
+                self.isXMLFile = true
+                
+                // Configure toolbar for XML
+                self.modularToolbarManager?.configureForFileType(.xml)
+                do {
+                    // Try to convert XML to JSON
+                    let jsonString = try XMLParser.convertToPrettyJSON(text)
+                    displayText = jsonString
+                    
+                    // Parse the converted JSON
+                    if let jsonData = jsonString.data(using: .utf8) {
+                        let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+                        self.currentJsonObject = jsonObject // Store for later use
+                        
+                        self.title = "XML: \(filename)"
+                        
+                        // Store a flag indicating this is an XML file
+                        self.isXMLFile = true
+                        
+                        // Reset navigation path to root
+                        self.currentPath = ["$"]
+                        self.jsonPathNavigator.updatePath(self.currentPath)
+                        
+                        // Display the XML with syntax highlighting
+                        if let boundedTextView = self.fileContentView as? BoundedTextView {
+                            print("[DEBUG] displayFileContent: Updating existing BoundedTextView with XML.")
+                            
+                            // Use XML highlighter directly on the original XML
+                            let xmlHighlighter = XMLHighlighter()
+                            let attributedString = xmlHighlighter.highlightXML(text, font: boundedTextView.font)
+                            
+                            // Safely update the attributed text and verify it's not nil
+                            if attributedString.length > 0 {
+                                boundedTextView.attributedText = attributedString
+                            } else {
+                                // Fallback to plain text if highlighting fails
+                                boundedTextView.text = text
+                            }
+                            
+                            // Configure text view
+                            boundedTextView.isEditable = false
+                            boundedTextView.isSelectable = true
+                            boundedTextView.isUserInteractionEnabled = true
+                            boundedTextView.applyCustomCodeStyle()
+                            boundedTextView.invalidateIntrinsicContentSize()
+                            
+                            boundedTextView.isHidden = false
+                            boundedTextView.alpha = 1.0
+                            if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                                print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                                self.contentStackView.insertArrangedSubview(boundedTextView, at: 0)
+                            }
+                        } else {
+                            print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView with XML.")
+                            let xmlHighlighter = XMLHighlighter()
+                            let attributedString = xmlHighlighter.highlightXML(text, font: self.fileContentView.font)
+                            self.fileContentView.attributedText = attributedString
+                            self.fileContentView.isEditable = false
+                            self.fileContentView.isHidden = false
+                            self.fileContentView.alpha = 1.0
+                        }
+                        
+                        // Enable tree view button for XML
+                        self.treeModeButton?.isEnabled = true
+                        print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (XML), isLoaded: true")
+                        self.updateUIVisibilityForJsonLoaded(true)
+                    }
+                } catch {
+                    print("[DEBUG] XML parsing failed: \(error)")
+                    // Display original XML with highlighting but no tree view
+                    if let boundedTextView = self.fileContentView as? BoundedTextView {
+                        let xmlHighlighter = XMLHighlighter()
+                        let attributedString = xmlHighlighter.highlightXML(text, font: boundedTextView.font)
+                        boundedTextView.attributedText = attributedString
+                        boundedTextView.isEditable = false
+                        boundedTextView.isSelectable = true
+                        boundedTextView.applyCustomCodeStyle()
+                    } else {
+                        let xmlHighlighter = XMLHighlighter()
+                        let attributedString = xmlHighlighter.highlightXML(text, font: self.fileContentView.font)
+                        self.fileContentView.attributedText = attributedString
+                    }
+                    self.fileContentView.isEditable = false
+                    self.fileContentView.isHidden = false
+                    self.fileContentView.alpha = 1.0
+                    self.currentJsonObject = nil
+                    print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (XML error), isLoaded: false")
+                    self.updateUIVisibilityForJsonLoaded(false)
+                }
             } 
             // Process YAML files
             else if isYAML || isYamlExtension {
@@ -1124,6 +1234,16 @@ extension ViewController {
             self?.loadSampleFile(name: "sample-data", extension: "csv")
         })
         
+        // Add XML person file option
+        actionSheet.addAction(UIAlertAction(title: "Sample XML Person", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-person", extension: "xml")
+        })
+        
+        // Add XML library file option
+        actionSheet.addAction(UIAlertAction(title: "Sample XML Library", style: .default) { [weak self] _ in
+            self?.loadSampleFile(name: "sample-library", extension: "xml")
+        })
+        
         // Add cancel option
         actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         
@@ -1186,10 +1306,11 @@ extension ViewController {
                 // Load the sample file content
                 let data = try Data(contentsOf: sampleFileURL)
                 
-                // Check if it's a YAML, TOML, INI, or CSV file
+                // Check if it's a YAML, TOML, INI, XML, or CSV file
                 let isYAML = fileExtension.lowercased() == "yaml" || fileExtension.lowercased() == "yml"
                 let isTOML = fileExtension.lowercased() == "toml"
                 let isINI = fileExtension.lowercased() == "ini"
+                let isXML = fileExtension.lowercased() == "xml"
                 let isCSV = fileExtension.lowercased() == "csv"
                 
                 if isYAML {
@@ -1198,6 +1319,7 @@ extension ViewController {
                     self.isYAMLFile = true
                     self.isTOMLFile = false
                     self.isINIFile = false
+                    self.isXMLFile = false
                     // Display as YAML
                     displayFileContent(url: sampleFileURL, data: data, isYAML: true)
                     return
@@ -1207,6 +1329,7 @@ extension ViewController {
                     self.isYAMLFile = false
                     self.isTOMLFile = true
                     self.isINIFile = false
+                    self.isXMLFile = false
                     // Display as TOML
                     displayFileContent(url: sampleFileURL, data: data, isTOML: true)
                     return
@@ -1216,8 +1339,19 @@ extension ViewController {
                     self.isYAMLFile = false
                     self.isTOMLFile = false
                     self.isINIFile = true
+                    self.isXMLFile = false
                     // Display as INI
                     displayFileContent(url: sampleFileURL, data: data, isINI: true)
+                    return
+                } else if isXML {
+                    // Reset file type flags before loading XML
+                    self.isCSVFile = false
+                    self.isYAMLFile = false
+                    self.isTOMLFile = false
+                    self.isINIFile = false
+                    self.isXMLFile = true
+                    // Display as XML
+                    displayFileContent(url: sampleFileURL, data: data, isXML: true)
                     return
                 } else if isCSV {
                     // Display as CSV
@@ -1230,6 +1364,7 @@ extension ViewController {
                         self.isYAMLFile = false
                         self.isTOMLFile = false
                         self.isINIFile = false
+                        self.isXMLFile = false
                         
                         // Parse the CSV data
                         let csvDocument = CSVParser.parse(csvString: csvString, filePath: sampleFileURL)
@@ -1389,11 +1524,13 @@ extension ViewController {
                     }
                 }
             } catch {
-                print("Error loading sample JSON: \(error)")
-                self.showEnhancedToast(message: "Error loading sample JSON: \(error.localizedDescription)", type: ToastType.error)
+                print("Error loading sample file: \(error)")
+                self.showEnhancedToast(message: "Error loading sample: \(error.localizedDescription)", type: ToastType.error)
             }
         } else {
-            self.showEnhancedToast(message: "Could not find sample.json in the app bundle", type: ToastType.error)
+            let filename = "\(name).\(fileExtension)"
+            print("Could not find \(filename) in the app bundle")
+            self.showEnhancedToast(message: "Could not find \(filename) in the app bundle", type: ToastType.error)
         }
     }
 

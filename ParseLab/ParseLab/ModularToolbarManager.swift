@@ -27,6 +27,7 @@ class ModularToolbarManager {
         case yaml
         case toml
         case ini
+        case xml
         case csv
     }
     
@@ -182,7 +183,7 @@ class ModularToolbarManager {
         
         // Configure based on file type
         switch fileType {
-        case .json, .yaml, .toml, .ini:
+        case .json, .yaml, .toml, .ini, .xml:
             // Add text/tree mode control
             viewModeControl = createViewModeControl()
             centerItems = [viewModeControl!]
