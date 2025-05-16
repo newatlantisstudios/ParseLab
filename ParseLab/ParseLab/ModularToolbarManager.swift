@@ -29,6 +29,7 @@ class ModularToolbarManager {
         case ini
         case xml
         case csv
+        case plist
     }
     
     init(viewController: ViewController, toolbar: ModernToolbar) {
@@ -183,7 +184,7 @@ class ModularToolbarManager {
         
         // Configure based on file type
         switch fileType {
-        case .json, .yaml, .toml, .ini, .xml:
+        case .json, .yaml, .toml, .ini, .xml, .plist:
             // Add text/tree mode control
             viewModeControl = createViewModeControl()
             centerItems = [viewModeControl!]

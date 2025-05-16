@@ -49,6 +49,9 @@ extension ViewController {
         // XML file type
         let xmlUTType = UTType(filenameExtension: "xml") ?? UTType.xml
         
+        // PLIST file type
+        let plistUTType = UTType(filenameExtension: "plist") ?? UTType.propertyList
+        
         // If yamlUTType is nil, create a dynamic UTType
         if yamlUTType == nil {
             yamlUTType = UTType(exportedAs: "public.yaml")
@@ -87,6 +90,9 @@ extension ViewController {
         
         // Add XML type
         contentTypes.append(xmlUTType)
+        
+        // Add PLIST type
+        contentTypes.append(plistUTType)
         
         let documentPicker = UIDocumentPickerViewController(
             forOpeningContentTypes: contentTypes,
@@ -205,13 +211,14 @@ extension ViewController {
             // Store the current file URL for save operations
             self.currentFileUrl = url
             
-            // Determine if the file is JSON, YAML, TOML, INI, XML, or CSV based on content and extension
+            // Determine if the file is JSON, YAML, TOML, INI, XML, CSV, or PLIST based on content and extension
             var isJSON = false
             var isYAML = false
             var isTOML = false
             var isINI = false
             var isXML = false
             var isCSV = false
+            var isPLIST = false
             
             let fileExtension = url.pathExtension.lowercased()
             
@@ -227,6 +234,8 @@ extension ViewController {
                 isXML = true
             } else if fileExtension == "csv" {
                 isCSV = true
+            } else if fileExtension == "plist" {
+                isPLIST = true
             } else if data.count > 0, let fileContent = String(data: data, encoding: .utf8) {
                 // If extension doesn't clearly indicate the type, check content
                 
@@ -261,6 +270,12 @@ extension ViewController {
                             if !isINI {
                                 // Use our custom XML detection
                                 isXML = XMLParser.isXML(content: fileContent)
+                                
+                                // If not XML, check if it might be PLIST
+                                if !isXML {
+                                    // Use our custom PLIST detection
+                                    isPLIST = PLISTParser.isPLIST(content: fileContent)
+                                }
                             }
                         }
                     }
@@ -268,10 +283,10 @@ extension ViewController {
             }
             
             // Now display the content after determining file type
-            displayFileContent(url: url, data: data, isYAML: isYAML, isTOML: isTOML, isINI: isINI, isXML: isXML)
+            displayFileContent(url: url, data: data, isYAML: isYAML, isTOML: isTOML, isINI: isINI, isXML: isXML, isPLIST: isPLIST)
             
-            // Add to recent files - treat YAML, TOML, INI, XML, and CSV as JSON for compatibility
-            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI || isXML || isCSV)
+            // Add to recent files - treat YAML, TOML, INI, XML, CSV, and PLIST as JSON for compatibility
+            RecentFilesManager.shared.addFile(url: url, isJSON: isJSON || isYAML || isTOML || isINI || isXML || isCSV || isPLIST)
             
             // Update open button menu with new recent files list
             updateRecentFilesMenu()
@@ -311,7 +326,7 @@ extension ViewController {
     }
 
     // Display file content
-    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false, isXML: Bool = false, isCSV: Bool = false) {
+    internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false, isXML: Bool = false, isCSV: Bool = false, isPLIST: Bool = false) {
         print("📝 Displaying file content for: \(url.lastPathComponent)")
         let filename = url.lastPathComponent
         let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
@@ -323,6 +338,7 @@ extension ViewController {
         self.isTOMLFile = false
         self.isINIFile = false
         self.isXMLFile = false
+        self.isPLISTFile = false
         
         // Check file extension to determine if we're switching to CSV
         let fileExtension = url.pathExtension.lowercased()
@@ -361,6 +377,148 @@ extension ViewController {
             }
         }
         
+        // Check file extension to determine file type
+        let isPlistExtension = fileExtension == "plist"
+        
+        // Process PLIST files separately as they can be binary
+        if isPLIST || isPlistExtension {
+            print("[DEBUG] Processing as PLIST file")
+            self.isPLISTFile = true
+            
+            // Configure toolbar for PLIST
+            self.modularToolbarManager?.configureForFileType(.plist)
+            do {
+                // Try to convert PLIST to JSON (handles both binary and XML)
+                let jsonString = try PLISTParser.convertToPrettyJSON(data)
+                displayText = jsonString
+                
+                // Parse the converted JSON
+                if let jsonData = jsonString.data(using: .utf8) {
+                    let jsonObject = try JSONSerialization.jsonObject(with: jsonData, options: .fragmentsAllowed)
+                    self.currentJsonObject = jsonObject // Store for later use
+                    
+                    self.title = "PLIST: \(filename)"
+                    
+                    // Reset navigation path to root
+                    self.currentPath = ["$"]
+                    self.jsonPathNavigator.updatePath(self.currentPath)
+                    
+                    // Display the PLIST with syntax highlighting
+                    if let boundedTextView = self.fileContentView as? BoundedTextView {
+                        print("[DEBUG] displayFileContent: Updating existing BoundedTextView with PLIST.")
+                        
+                        // Try to get XML representation for highlighting
+                        if let text = String(data: data, encoding: .utf8) {
+                            // Use PLIST highlighter on XML text
+                            let plistHighlighter = PLISTHighlighter()
+                            let attributedString = plistHighlighter.highlightPLIST(text, font: boundedTextView.font)
+                            boundedTextView.attributedText = attributedString
+                        } else {
+                            // If binary, show the JSON representation
+                            let jsonHighlighter = JSONHighlighter()
+                            let attributedString = jsonHighlighter.highlightJSON(jsonString, font: boundedTextView.font)
+                            boundedTextView.attributedText = attributedString
+                        }
+                        
+                        // Configure text view
+                        boundedTextView.isEditable = false
+                        boundedTextView.isSelectable = true
+                        boundedTextView.isUserInteractionEnabled = true
+                        boundedTextView.applyCustomCodeStyle()
+                        boundedTextView.invalidateIntrinsicContentSize()
+                        
+                        boundedTextView.isHidden = false
+                        boundedTextView.alpha = 1.0
+                        if !self.contentStackView.arrangedSubviews.contains(boundedTextView) {
+                            print("[WARNING] displayFileContent: BoundedTextView was not in contentStackView, re-inserting.")
+                            self.contentStackView.insertArrangedSubview(boundedTextView, at: 0)
+                        }
+                    } else {
+                        print("[DEBUG] displayFileContent: Fallback - Updating standard UITextView with PLIST.")
+                        
+                        // Try to get XML representation for highlighting
+                        if let text = String(data: data, encoding: .utf8) {
+                            let plistHighlighter = PLISTHighlighter()
+                            let attributedString = plistHighlighter.highlightPLIST(text, font: self.fileContentView.font)
+                            self.fileContentView.attributedText = attributedString
+                        } else {
+                            // If binary, show the JSON representation
+                            let jsonHighlighter = JSONHighlighter()
+                            let attributedString = jsonHighlighter.highlightJSON(jsonString, font: self.fileContentView.font)
+                            self.fileContentView.attributedText = attributedString
+                        }
+                        
+                        self.fileContentView.isEditable = false
+                        self.fileContentView.isHidden = false
+                        self.fileContentView.alpha = 1.0
+                    }
+                    
+                    // Enable tree view button for PLIST
+                    self.treeModeButton?.isEnabled = true
+                    
+                    // Update UI for the parsed file
+                    self.view.layoutIfNeeded()
+                    self.fileContentView.scrollRangeToVisible(NSRange(location: 0, length: 0))
+                    
+                    // Make all UI elements visible
+                    self.jsonActionsStackView.isHidden = false
+                    self.jsonActionsToolbar.isHidden = false
+                    self.navigationContainerView.isHidden = false
+                    self.actionsBar.isHidden = false
+                    
+                    if let rawButton = self.rawViewToggleButton {
+                        rawButton.setTitle("Raw", for: .normal)
+                        rawButton.isHidden = false
+                    }
+                    
+                    if let editButton = self.editToggleButton {
+                        editButton.setTitle("Edit", for: .normal)
+                        editButton.isEnabled = true
+                        editButton.isHidden = false
+                    }
+                    
+                    if let saveButton = self.saveButton {
+                        saveButton.isHidden = true
+                    }
+                    
+                    if let cancelButton = self.cancelButton {
+                        cancelButton.isHidden = true
+                    }
+                    
+                    self.isMinimapVisible = true
+                    print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (PLIST handling), isLoaded: true")
+                    self.updateUIVisibilityForJsonLoaded(true)
+                    return // Exit early as we've handled the PLIST display
+                }
+            } catch {
+                // Could not parse or convert PLIST
+                print("Error processing PLIST: \(error)")
+                
+                // Try to display as text if possible
+                if let text = String(data: data, encoding: .utf8) {
+                    displayText = text
+                    textColor = .label
+                } else {
+                    displayText = "Error: Could not decode PLIST file."
+                    textColor = .red
+                }
+                
+                DispatchQueue.main.async { [weak self] in
+                     guard let self = self else { return }
+                    self.title = "PLIST (Error): \(filename)"
+                     self.fileContentView.text = displayText
+                     self.fileContentView.textColor = textColor
+                     self.fileContentView.isEditable = false
+                     self.fileContentView.isHidden = false
+                     self.fileContentView.alpha = 1.0
+                     self.currentJsonObject = nil
+                     print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (PLIST error), isLoaded: false")
+                     self.updateUIVisibilityForJsonLoaded(false)
+                }
+                return
+            }
+        }
+        
         // Try decoding as UTF-8 text
         if let text = String(data: data, encoding: .utf8) {
             // Check file type based on extension or content
@@ -371,6 +529,7 @@ extension ViewController {
             let isIniExtension = fileExtension == "ini"
             let isXmlExtension = fileExtension == "xml"
             let isCsvExtension = fileExtension == "csv"
+            let isPlistExtension = fileExtension == "plist"
             let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
             let startsWithBrace = content.hasPrefix("{") && content.hasSuffix("}")
             let startsWithBracket = content.hasPrefix("[") && content.hasSuffix("]")
@@ -861,7 +1020,7 @@ extension ViewController {
                     print("[DEBUG] Calling updateUIVisibilityForJsonLoaded from FileOperations.swift (XML error), isLoaded: false")
                     self.updateUIVisibilityForJsonLoaded(false)
                 }
-            } 
+            }
             // Process YAML files
             else if isYAML || isYamlExtension {
                 print("[DEBUG] Processing as YAML file")
@@ -1186,76 +1345,23 @@ extension ViewController {
     @objc internal func loadSampleButtonTapped() {
         print("[ACTION LOG] loadSampleButtonTapped called!")
         
-        // Show a menu with sample file options
-        let actionSheet = UIAlertController(title: "Choose a Sample File", message: nil, preferredStyle: .actionSheet)
+        // Create the sample file picker view controller
+        let samplePickerVC = SampleFilePickerViewController()
+        samplePickerVC.delegate = self
         
-        // Add JSON file option
-        actionSheet.addAction(UIAlertAction(title: "Sample JSON", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample", extension: "json")
-        })
+        // Wrap it in a navigation controller for the cancel button
+        let navController = UINavigationController(rootViewController: samplePickerVC)
+        navController.modalPresentationStyle = .formSheet
         
-        // Add YAML config file option
-        actionSheet.addAction(UIAlertAction(title: "Sample YAML Config", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-config", extension: "yaml")
-        })
-        
-        // Add YAML person file option
-        actionSheet.addAction(UIAlertAction(title: "Sample YAML Person", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "valid-person", extension: "yaml")
-        })
-        
-        // Add TOML config file option
-        actionSheet.addAction(UIAlertAction(title: "Sample TOML Config", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-config", extension: "toml")
-        })
-        
-        // Add TOML person file option
-        actionSheet.addAction(UIAlertAction(title: "Sample TOML Person", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-person", extension: "toml")
-        })
-        
-        // Add TOML validation test file option
-        actionSheet.addAction(UIAlertAction(title: "TOML Validation Test", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "test-validation", extension: "toml")
-        })
-        
-        // Add INI config file option
-        actionSheet.addAction(UIAlertAction(title: "Sample INI Config", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-config", extension: "ini")
-        })
-        
-        // Add INI person file option
-        actionSheet.addAction(UIAlertAction(title: "Sample INI Person", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-person", extension: "ini")
-        })
-        
-        // Add CSV data file option
-        actionSheet.addAction(UIAlertAction(title: "Sample CSV Data", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-data", extension: "csv")
-        })
-        
-        // Add XML person file option
-        actionSheet.addAction(UIAlertAction(title: "Sample XML Person", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-person", extension: "xml")
-        })
-        
-        // Add XML library file option
-        actionSheet.addAction(UIAlertAction(title: "Sample XML Library", style: .default) { [weak self] _ in
-            self?.loadSampleFile(name: "sample-library", extension: "xml")
-        })
-        
-        // Add cancel option
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        
-        // Present the menu
-        if let popoverController = actionSheet.popoverPresentationController {
-            // For iPad support
+        // For iPad support, configure the presentation controller
+        if let popoverController = navController.popoverPresentationController {
             popoverController.sourceView = self.view
             popoverController.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
             popoverController.permittedArrowDirections = []
         }
         
-        present(actionSheet, animated: true)
+        // Present the navigation controller
+        present(navController, animated: true)
     }
     
     // Load a specific sample file
@@ -1312,6 +1418,7 @@ extension ViewController {
                 let isINI = fileExtension.lowercased() == "ini"
                 let isXML = fileExtension.lowercased() == "xml"
                 let isCSV = fileExtension.lowercased() == "csv"
+                let isPLIST = fileExtension.lowercased() == "plist"
                 
                 if isYAML {
                     // Reset file type flags before loading YAML
@@ -1320,6 +1427,7 @@ extension ViewController {
                     self.isTOMLFile = false
                     self.isINIFile = false
                     self.isXMLFile = false
+                    self.isPLISTFile = false
                     // Display as YAML
                     displayFileContent(url: sampleFileURL, data: data, isYAML: true)
                     return
@@ -1330,6 +1438,7 @@ extension ViewController {
                     self.isTOMLFile = true
                     self.isINIFile = false
                     self.isXMLFile = false
+                    self.isPLISTFile = false
                     // Display as TOML
                     displayFileContent(url: sampleFileURL, data: data, isTOML: true)
                     return
@@ -1340,6 +1449,7 @@ extension ViewController {
                     self.isTOMLFile = false
                     self.isINIFile = true
                     self.isXMLFile = false
+                    self.isPLISTFile = false
                     // Display as INI
                     displayFileContent(url: sampleFileURL, data: data, isINI: true)
                     return
@@ -1350,8 +1460,20 @@ extension ViewController {
                     self.isTOMLFile = false
                     self.isINIFile = false
                     self.isXMLFile = true
+                    self.isPLISTFile = false
                     // Display as XML
                     displayFileContent(url: sampleFileURL, data: data, isXML: true)
+                    return
+                } else if isPLIST {
+                    // Reset file type flags before loading PLIST
+                    self.isCSVFile = false
+                    self.isYAMLFile = false
+                    self.isTOMLFile = false
+                    self.isINIFile = false
+                    self.isXMLFile = false
+                    self.isPLISTFile = true
+                    // Display as PLIST
+                    displayFileContent(url: sampleFileURL, data: data, isPLIST: true)
                     return
                 } else if isCSV {
                     // Display as CSV
@@ -1365,6 +1487,7 @@ extension ViewController {
                         self.isTOMLFile = false
                         self.isINIFile = false
                         self.isXMLFile = false
+                        self.isPLISTFile = false
                         
                         // Parse the CSV data
                         let csvDocument = CSVParser.parse(csvString: csvString, filePath: sampleFileURL)
@@ -1425,6 +1548,8 @@ extension ViewController {
                 self.isYAMLFile = false
                 self.isTOMLFile = false
                 self.isINIFile = false
+                self.isXMLFile = false
+                self.isPLISTFile = false
                 
                 // Parse the JSON to make sure it's valid
                 let jsonObject = try JSONSerialization.jsonObject(with: data, options: [])
@@ -1573,5 +1698,13 @@ extension ViewController: UIDocumentPickerDelegate {
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         // Optional: Handle cancellation if needed
         print("Document picker was cancelled.")
+    }
+}
+
+// MARK: - SampleFilePickerDelegate
+
+extension ViewController: SampleFilePickerDelegate {
+    func sampleFilePicker(_ picker: SampleFilePickerViewController, didSelectFile file: SampleFile) {
+        loadSampleFile(name: file.name, extension: file.fileExtension)
     }
 }

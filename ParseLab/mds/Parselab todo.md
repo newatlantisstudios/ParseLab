@@ -40,7 +40,7 @@
   - [x] Test type to type toolbar to find bugs
 
 - [x] XML (.xml) – tree + raw view
-- [ ] PLIST (.plist)
+- [x] PLIST (.plist)
 - [ ] Validation works correctly for each of type of files
 
 ### 🔄 **Format Conversion**
@@ -53,7 +53,7 @@
 **Other**
 
 - [ ] TipJar
-- [ ] Sample buttons needs to be a list, not a bunch of buttons
+- [x] Sample buttons needs to be a list, not a bunch of buttons
 - [ ] The app needs to be aware of what file type it is in for UI text
 
 ## 🧬 **Phase 3: Advanced File Formats & Features**

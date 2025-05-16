@@ -34,6 +34,7 @@ class ViewController: UIViewController {
     internal var isINIFile: Bool = false
     internal var isXMLFile: Bool = false
     internal var isCSVFile: Bool = false
+    internal var isPLISTFile: Bool = false
     internal var pendingCSVSetupWorkItem: DispatchWorkItem?
     
     // CSV specific properties

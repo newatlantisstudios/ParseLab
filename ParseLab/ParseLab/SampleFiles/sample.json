@@ -1,0 +1,22 @@
+{
+  "name": "ParseLab Sample",
+  "version": "1.0",
+  "data": {
+    "array_example": [1, 2, 3, 4, 5],
+    "object_example": {
+      "key1": "value1",
+      "key2": "value2",
+      "nested": {
+        "deep": "structure"
+      }
+    },
+    "string_example": "Hello, World!",
+    "number_example": 42.5,
+    "boolean_example": true,
+    "null_example": null
+  },
+  "meta": {
+    "created_at": "2025-01-01T00:00:00Z",
+    "author": "ParseLab Developer"
+  }
+}
