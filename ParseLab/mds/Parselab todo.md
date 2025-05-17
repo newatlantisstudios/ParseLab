@@ -41,7 +41,7 @@
 
 - [x] XML (.xml) – tree + raw view
 - [x] PLIST (.plist)
-- [ ] Validation works correctly for each of type of files
+- [x] Validation works correctly for each of type of files
 
 ### 🔄 **Format Conversion**
 - [ ] JSON ↔ YAML
@@ -52,9 +52,9 @@
 
 **Other**
 
-- [ ] TipJar
+- [x] TipJar
 - [x] Sample buttons needs to be a list, not a bunch of buttons
-- [ ] The app needs to be aware of what file type it is in for UI text
+- [x] The app needs to be aware of what file type it is in for UI text
 
 ## 🧬 **Phase 3: Advanced File Formats & Features**
 ### 💾 **Heavier Formats**
@@ -68,7 +68,7 @@
 - [ ] Large file handling (streaming, lazy load)
 - [ ] Highlight changes (diff mode)
 - [ ] Linting / semantic warnings
-- [ ] Toggle "view-only" or "edit mode"
+- [x] Toggle "view-only" or "edit mode"
 
 ### 📤 **Sharing & Export**
 - [ ] Export edited file

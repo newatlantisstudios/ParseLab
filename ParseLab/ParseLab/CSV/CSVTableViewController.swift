@@ -54,7 +54,7 @@ class CSVTableViewController: UIViewController {
         
         // Set title to the filename if available
         if let filePath = csvDocument?.filePath {
-            title = filePath.lastPathComponent
+            title = "CSV: \(filePath.lastPathComponent)"
         } else {
             title = "CSV View"
         }

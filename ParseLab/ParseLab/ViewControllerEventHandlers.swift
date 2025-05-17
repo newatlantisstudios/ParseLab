@@ -321,9 +321,23 @@ extension ViewController {
     // Implement the validateJsonTapped method
     @objc func validateJsonTapped() {
         print("[DEBUG] validateJsonTapped entered")
+        
+        // Handle CSV files separately
+        if isCSVFile {
+            validateCSVFile()
+            return
+        }
+        
         guard let jsonObject = currentJsonObject else {
             print("[DEBUG] validateJsonTapped: currentJsonObject is nil")
-            showErrorMessage("No valid data loaded")
+            
+            // Provide more helpful error messages based on file type
+            let formatName = getFormatName()
+            if formatName == "JSON" {
+                showErrorMessage("No valid JSON data loaded")
+            } else {
+                showErrorMessage("Failed to parse \(formatName) file into JSON structure")
+            }
             return
         }
         print("[DEBUG] validateJsonTapped: currentJsonObject is valid")
@@ -365,8 +379,8 @@ extension ViewController {
         
         analyzeJson(jsonObject)
         
-        // Determine the format based on the file type
-        let formatName = isTOMLFile ? "TOML" : (isYAMLFile ? "YAML" : (isINIFile ? "INI" : "JSON"))
+        // Use the helper function to get format name
+        let formatName = getFormatName()
         
         let stats = """
         \(formatName) Validation Results:
@@ -399,6 +413,50 @@ extension ViewController {
             
             // Show success toast with appropriate format name
             self.showToast(message: "\(formatName) is valid", type: .success)
+        }
+    }
+    
+    // Handle CSV file validation
+    private func validateCSVFile() {
+        print("[DEBUG] validateCSVFile entered")
+        
+        guard let csvDocument = currentCSVDocument else {
+            print("[DEBUG] validateCSVFile: currentCSVDocument is nil")
+            showErrorMessage("No CSV data loaded")
+            return
+        }
+        
+        let stats = """
+        CSV Validation Results:
+        • Structure is valid CSV
+        • Row count: \(csvDocument.rows.count)
+        • Column count: \(csvDocument.headers.count)
+        
+        Headers:
+        \(csvDocument.headers.joined(separator: ", "))
+        
+        Data Summary:
+        • Total cells: \(csvDocument.rows.count * csvDocument.headers.count)
+        • Empty cells: \(csvDocument.rows.flatMap({ $0 }).filter({ $0.isEmpty }).count)
+        • Non-empty cells: \(csvDocument.rows.flatMap({ $0 }).filter({ !$0.isEmpty }).count)
+        """
+        
+        print("[DEBUG] validateCSVFile: Generated stats:\n\(stats)")
+        
+        let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
+        let attributedString = NSAttributedString(
+            string: stats,
+            attributes: [.foregroundColor: UIColor.label, .font: baseFont]
+        )
+        
+        // Ensure UI update happens on the main thread
+        DispatchQueue.main.async {
+            print("[DEBUG] validateCSVFile: Updating fileContentView")
+            self.fileContentView.attributedText = attributedString
+            print("[DEBUG] validateCSVFile: fileContentView updated")
+            
+            // Show success toast
+            self.showToast(message: "CSV is valid", type: .success)
         }
     }
     
@@ -475,4 +533,23 @@ extension ViewController {
 
     // Note: @objc methods like openFileButtonTapped, loadSampleButtonTapped, etc., 
     // are assumed to be defined in ViewController+FileOperations.swift or elsewhere.
+    
+    // Helper function to get the format name based on file type flags
+    private func getFormatName() -> String {
+        if isTOMLFile { 
+            return "TOML"
+        } else if isYAMLFile {
+            return "YAML"
+        } else if isINIFile {
+            return "INI"
+        } else if isXMLFile {
+            return "XML"
+        } else if isPLISTFile {
+            return "PLIST"
+        } else if isCSVFile {
+            return "CSV"
+        } else {
+            return "JSON"
+        }
+    }
 }

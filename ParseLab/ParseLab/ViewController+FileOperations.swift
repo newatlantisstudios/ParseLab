@@ -328,6 +328,10 @@ extension ViewController {
     // Display file content
     internal func displayFileContent(url: URL, data: Data, isYAML: Bool = false, isTOML: Bool = false, isINI: Bool = false, isXML: Bool = false, isCSV: Bool = false, isPLIST: Bool = false) {
         print("📝 Displaying file content for: \(url.lastPathComponent)")
+        
+        // Remove welcome view when loading a file
+        removeWelcomeView()
+        
         let filename = url.lastPathComponent
         let baseFont = fileContentView.font ?? .monospacedSystemFont(ofSize: 14, weight: .regular)
         var displayText: String? = nil

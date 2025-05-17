@@ -26,7 +26,13 @@ class DesignSystem {
             if #available(iOS 13.0, *) {
                 return .label
             } else {
-                return .black
+                return UIColor { traitCollection in
+                if #available(iOS 13.0, *), traitCollection.userInterfaceStyle == .dark {
+                    return .white
+                } else {
+                    return .black
+                }
+            }
             }
         }
         

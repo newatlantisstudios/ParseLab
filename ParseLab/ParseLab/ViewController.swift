@@ -321,8 +321,8 @@ class ViewController: UIViewController {
             print("[LOG] ViewController: viewDidLoad - Dispatch START - initial UI setup")
             guard let self = self else { return }
             
-            // Use the enhanced welcome message
-            self.fileContentView.attributedText = self.createWelcomeMessage()
+            // Use the enhanced welcome view
+            self.setupWelcomeView()
             
             // Ensure layout is correctly applied at startup
             print("[LOG] ViewController: viewDidLoad - Dispatch - layoutIfNeeded")
@@ -695,6 +695,61 @@ class ViewController: UIViewController {
     @objc private func searchButtonTapped() {
         // Use the disambiguated handler from ViewControllerEventHandlers.swift
         handleSearchButtonTapped()
+    }
+    
+    // MARK: - Welcome View
+    
+    private var welcomeView: UIView?
+    
+    private func setupWelcomeView() {
+        // Use the existing fileContentView to show welcome message
+        fileContentView.isEditable = false
+        fileContentView.isSelectable = false
+        fileContentView.attributedText = createWelcomeMessage()
+        
+        // Create tip jar button
+        let tipJarButton = UIButton(type: .system)
+        tipJarButton.translatesAutoresizingMaskIntoConstraints = false
+        tipJarButton.setTitle("💝 Tip Jar", for: .normal)
+        tipJarButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+        tipJarButton.backgroundColor = UIColor.systemPink
+        tipJarButton.setTitleColor(.white, for: .normal)
+        tipJarButton.layer.cornerRadius = DesignSystem.Sizing.cornerRadius
+        tipJarButton.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
+        tipJarButton.addTarget(self, action: #selector(tipJarButtonTapped), for: .touchUpInside)
+        
+        // Add button to the view
+        view.addSubview(tipJarButton)
+        
+        // Store reference to tip jar button for removal
+        welcomeView = tipJarButton
+        
+        // Position the button at the bottom of the screen
+        NSLayoutConstraint.activate([
+            tipJarButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            tipJarButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -40),
+            tipJarButton.heightAnchor.constraint(equalToConstant: 50),
+            tipJarButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 150)
+        ])
+    }
+    
+    internal func removeWelcomeView() {
+        welcomeView?.removeFromSuperview()
+        welcomeView = nil
+        fileContentView.isHidden = false
+    }
+    
+    // MARK: - Tip Jar
+    
+    @objc internal func tipJarButtonTapped() {
+        presentTipJar()
+    }
+    
+    private func presentTipJar() {
+        let tipJarVC = TipJarViewController()
+        let navigationController = UINavigationController(rootViewController: tipJarVC)
+        navigationController.modalPresentationStyle = .formSheet
+        present(navigationController, animated: true, completion: nil)
     }
 }
 

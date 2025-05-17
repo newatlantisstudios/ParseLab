@@ -128,8 +128,117 @@ extension ViewController {
         }
     }
     
-    // Create a visually appealing welcome message with app features
+    // Create a visually appealing welcome message
     func createWelcomeMessage() -> NSAttributedString {
+        let welcomeTitle = "Welcome to ParseLab"
+        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, and CSV files"
+        let featuresTitle = "Features"
+        let features = [
+            "• Syntax highlighting for JSON, YAML, TOML, INI, and CSV",
+            "• Tree view for complex structures",
+            "• Table view for CSV files", 
+            "• JSON validation and error checking",
+            "• JSON Schema validation",
+            "• Search within keys and values",
+            "• Edit and save files"
+        ]
+        let startingGuide = [
+            "To get started:",
+            "• Tap \"Open File\" to select a file from your device",
+            "• Tap \"Load Sample\" to view sample files",
+            "• Open files from the Files app by selecting ParseLab"
+        ]
+        
+        let attributedString = NSMutableAttributedString()
+        
+        // Title
+        let titleFont = UIFont.systemFont(ofSize: 28, weight: .bold)
+        let titleColor = UIColor.systemBlue
+        let titleAttributes: [NSAttributedString.Key: Any] = [
+            .font: titleFont,
+            .foregroundColor: titleColor
+        ]
+        attributedString.append(NSAttributedString(string: welcomeTitle + "\n", attributes: titleAttributes))
+        
+        // Description
+        let descFont = UIFont.systemFont(ofSize: 17, weight: .regular)
+        let descColor = DesignSystem.Colors.text
+        let descAttributes: [NSAttributedString.Key: Any] = [
+            .font: descFont,
+            .foregroundColor: descColor
+        ]
+        attributedString.append(NSAttributedString(string: welcomeDesc + "\n\n", attributes: descAttributes))
+        
+        // Features title
+        let featuresTitleFont = UIFont.systemFont(ofSize: 20, weight: .semibold)
+        let featuresTitleColor = UIColor.systemIndigo
+        let featuresTitleAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresTitleFont,
+            .foregroundColor: featuresTitleColor
+        ]
+        attributedString.append(NSAttributedString(string: featuresTitle + "\n", attributes: featuresTitleAttributes))
+        
+        // Features list
+        let featuresFont = UIFont.systemFont(ofSize: 15, weight: .regular)
+        let featuresColor = DesignSystem.Colors.text
+        let featuresAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresFont,
+            .foregroundColor: featuresColor
+        ]
+        let featuresText = features.joined(separator: "\n")
+        attributedString.append(NSAttributedString(string: featuresText + "\n\n", attributes: featuresAttributes))
+        
+        // Getting started
+        let startingTitleAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresTitleFont,
+            .foregroundColor: featuresTitleColor
+        ]
+        attributedString.append(NSAttributedString(string: "Getting Started\n", attributes: startingTitleAttributes))
+        
+        let startingAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresFont,
+            .foregroundColor: featuresColor
+        ]
+        let startingText = startingGuide.joined(separator: "\n")
+        attributedString.append(NSAttributedString(string: startingText + "\n\n", attributes: startingAttributes))
+        
+        // Tip Jar section
+        let tipJarTitleAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresTitleFont,
+            .foregroundColor: UIColor.systemPink
+        ]
+        attributedString.append(NSAttributedString(string: "Support ParseLab" + "\n", attributes: tipJarTitleAttributes))
+        
+        let tipJarDescAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresFont,
+            .foregroundColor: featuresColor
+        ]
+        let tipJarDescription = "If you find ParseLab helpful, consider supporting its development with a tip. Your support helps keep the app updated and maintained."
+        attributedString.append(NSAttributedString(string: tipJarDescription, attributes: tipJarDescAttributes))
+        
+        return attributedString
+    }
+    
+    // Create a visually appealing welcome view with app features
+    func createWelcomeView() -> UIView {
+        let containerView = UIView()
+        containerView.translatesAutoresizingMaskIntoConstraints = false
+        containerView.backgroundColor = DesignSystem.Colors.background
+        
+        // Create a text view for the welcome content
+        let welcomeTextView = UITextView()
+        welcomeTextView.translatesAutoresizingMaskIntoConstraints = false
+        welcomeTextView.isEditable = false
+        welcomeTextView.isSelectable = false
+        welcomeTextView.backgroundColor = DesignSystem.Colors.backgroundTertiary
+        welcomeTextView.layer.cornerRadius = DesignSystem.Sizing.cornerRadius
+        welcomeTextView.font = UIFont.systemFont(ofSize: 16)
+        welcomeTextView.textAlignment = .left
+        welcomeTextView.textContainerInset = UIEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        welcomeTextView.scrollIndicatorInsets = UIEdgeInsets(top: 10, left: 0, bottom: 10, right: 0)
+        welcomeTextView.isScrollEnabled = true
+        welcomeTextView.alwaysBounceVertical = true
+        
         let welcomeTitle = "Welcome to ParseLab"
         let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, and CSV files"
         let featuresTitle = "Features"
@@ -162,7 +271,7 @@ extension ViewController {
         
         // Description
         let descFont = UIFont.systemFont(ofSize: 17, weight: .regular)
-        let descColor = UIColor.darkText
+        let descColor = DesignSystem.Colors.text
         let descAttributes: [NSAttributedString.Key: Any] = [
             .font: descFont,
             .foregroundColor: descColor
@@ -180,7 +289,7 @@ extension ViewController {
         
         // Features list
         let featuresFont = UIFont.systemFont(ofSize: 15, weight: .regular)
-        let featuresColor = UIColor.darkText
+        let featuresColor = DesignSystem.Colors.text
         let featuresAttributes: [NSAttributedString.Key: Any] = [
             .font: featuresFont,
             .foregroundColor: featuresColor
@@ -200,9 +309,56 @@ extension ViewController {
             .foregroundColor: featuresColor
         ]
         let startingText = startingGuide.joined(separator: "\n")
-        attributedString.append(NSAttributedString(string: startingText, attributes: startingAttributes))
+        attributedString.append(NSAttributedString(string: startingText + "\n\n", attributes: startingAttributes))
         
-        return attributedString
+        // Tip Jar section
+        let tipJarTitleAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresTitleFont,
+            .foregroundColor: UIColor.systemPink
+        ]
+        attributedString.append(NSAttributedString(string: "Support ParseLab" + "\n", attributes: tipJarTitleAttributes))
+        
+        let tipJarDescAttributes: [NSAttributedString.Key: Any] = [
+            .font: featuresFont,
+            .foregroundColor: featuresColor
+        ]
+        let tipJarDescription = "If you find ParseLab helpful, consider supporting its development with a tip. Your support helps keep the app updated and maintained."
+        attributedString.append(NSAttributedString(string: tipJarDescription, attributes: tipJarDescAttributes))
+        
+        // Set the attributed text to the text view
+        welcomeTextView.attributedText = attributedString
+        
+        // Add text view to container
+        containerView.addSubview(welcomeTextView)
+        
+        // Create tip jar button
+        let tipJarButton = UIButton(type: .system)
+        tipJarButton.translatesAutoresizingMaskIntoConstraints = false
+        tipJarButton.setTitle("💝 Tip Jar", for: .normal)
+        tipJarButton.titleLabel?.font = UIFont.systemFont(ofSize: 17, weight: .medium)
+        tipJarButton.backgroundColor = UIColor.systemPink
+        tipJarButton.setTitleColor(.white, for: .normal)
+        tipJarButton.layer.cornerRadius = DesignSystem.Sizing.cornerRadius
+        tipJarButton.contentEdgeInsets = UIEdgeInsets(top: 12, left: 24, bottom: 12, right: 24)
+        tipJarButton.addTarget(self, action: #selector(tipJarButtonTapped), for: .touchUpInside)
+        
+        containerView.addSubview(tipJarButton)
+        
+        // Setup constraints
+        NSLayoutConstraint.activate([
+            welcomeTextView.topAnchor.constraint(equalTo: containerView.topAnchor),
+            welcomeTextView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
+            welcomeTextView.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
+            welcomeTextView.bottomAnchor.constraint(equalTo: tipJarButton.topAnchor, constant: -20),
+            welcomeTextView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300), // Ensure minimum height
+            
+            tipJarButton.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+            tipJarButton.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -20),
+            tipJarButton.heightAnchor.constraint(equalToConstant: 50),
+            tipJarButton.widthAnchor.constraint(greaterThanOrEqualToConstant: 150) // Ensure button width
+        ])
+        
+        return containerView
     }
     
     // Enhanced toast message with modern styling

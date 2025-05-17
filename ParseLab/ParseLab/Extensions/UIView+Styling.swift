@@ -78,7 +78,7 @@ extension UIButton {
                 self.layer.borderColor = UIColor.separator.cgColor
             } else {
                 self.backgroundColor = UIColor.white
-                self.setTitleColor(textColor ?? UIColor.black, for: .normal)
+                self.setTitleColor(textColor ?? DesignSystem.Colors.text, for: .normal)
                 self.layer.borderWidth = 0.5
                 self.layer.borderColor = UIColor.lightGray.cgColor
             }
