@@ -131,15 +131,15 @@ extension ViewController {
     // Create a visually appealing welcome message
     func createWelcomeMessage() -> NSAttributedString {
         let welcomeTitle = "Welcome to ParseLab"
-        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, and CSV files"
+        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, XML, PLIST, and CSV files"
         let featuresTitle = "Features"
         let features = [
-            "• Syntax highlighting for JSON, YAML, TOML, INI, and CSV",
+            "• Syntax highlighting for all supported formats",
             "• Tree view for complex structures",
             "• Table view for CSV files", 
             "• JSON validation and error checking",
-            "• JSON Schema validation",
-            "• Search within keys and values",
+            "• JSON Schema validation for JSON and TOML files",
+            "• Search within keys, values, and structure",
             "• Edit and save files"
         ]
         let startingGuide = [
@@ -240,15 +240,15 @@ extension ViewController {
         welcomeTextView.alwaysBounceVertical = true
         
         let welcomeTitle = "Welcome to ParseLab"
-        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, and CSV files"
+        let welcomeDesc = "A modern tool for working with JSON, YAML, TOML, INI, XML, PLIST, and CSV files"
         let featuresTitle = "Features"
         let features = [
-            "• Syntax highlighting for JSON, YAML, TOML, INI, and CSV",
+            "• Syntax highlighting for all supported formats",
             "• Tree view for complex structures",
             "• Table view for CSV files",
             "• JSON validation and error checking",
-            "• JSON Schema validation",
-            "• Search within keys and values",
+            "• JSON Schema validation for JSON and TOML files",
+            "• Search within keys, values, and structure",
             "• Edit and save files"
         ]
         let startingGuide = [

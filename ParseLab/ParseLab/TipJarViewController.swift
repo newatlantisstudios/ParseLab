@@ -13,9 +13,9 @@ class TipJarViewController: UIViewController {
     // MARK: - Properties
     
     private let tipOptions = [
-        ("Small Tip", "$0.99", "com.parselab.tip.small"),
-        ("Medium Tip", "$2.99", "com.parselab.tip.medium"),
-        ("Large Tip", "$4.99", "com.parselab.tip.large")
+        ("Small Tip", "$0.99", "com.newatlantisstudios.parselab.tip.small"),
+        ("Medium Tip", "$2.99", "com.newatlantisstudios.parselab.tip.medium"),
+        ("Large Tip", "$4.99", "com.newatlantisstudios.parselab.tip.large")
     ]
     
     private var tipButtons: [UIButton] = []

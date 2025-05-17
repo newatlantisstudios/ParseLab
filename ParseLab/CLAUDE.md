@@ -6,13 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ParseLab is an iOS utility app for working with structured data formats, including:
 
-- JSON (native support with full editing)
+- JSON (native support with full editing and JSON Schema validation)
 - YAML (parsing, display, and syntax highlighting)
-- TOML (parsing, display, and validation)
+- TOML (parsing, display, validation, and JSON Schema validation)
 - INI (parsing and display)
+- XML (parsing, display, and syntax highlighting)
+- PLIST (parsing, display, and support for both XML and binary formats)
 - CSV (parsing with table view and text view)
 
-The app offers multiple viewing modes (text view, tree view, and table view for CSV), syntax highlighting, JSON schema validation, and path navigation for hierarchical data structures.
+The app offers multiple viewing modes (text view, tree view, and table view for CSV), syntax highlighting, JSON schema validation for JSON and TOML files, and path navigation for hierarchical data structures.
 
 ## Architecture
 
@@ -23,6 +25,8 @@ The app offers multiple viewing modes (text view, tree view, and table view for 
    - `YAMLParser` - Handles YAML parsing and conversion to JSON
    - `TOMLParser` - Manual TOML parser with JSON conversion
    - `INIParser` - Parses INI files to JSON structure
+   - `XMLParser` - Parses XML files to JSON structure
+   - `PLISTParser` - Handles PLIST files (both XML and binary) with JSON conversion
    - `CSVParser` - Handles CSV parsing and tabular data
 
 2. **UI Components**
@@ -31,7 +35,7 @@ The app offers multiple viewing modes (text view, tree view, and table view for 
    - `CSVTableViewController` - Table view for CSV data
 
 3. **Syntax Highlighting**
-   - `JSONHighlighter`, `YAMLHighlighter`, `TOMLHighlighter`, `INIHighlighter`, `CSVHighlighter`
+   - `JSONHighlighter`, `YAMLHighlighter`, `TOMLHighlighter`, `INIHighlighter`, `XMLHighlighter`, `PLISTHighlighter`, `CSVHighlighter`
 
 4. **Schema Validation**
    - `JSONSchemaValidator` - Validates JSON against JSON Schemas
@@ -67,6 +71,21 @@ CSV files can be viewed and edited in both text and table modes:
 - `CSVDocument` - Core class storing headers and rows
 - `CSVTableViewController` - Provides Excel-like editing experience
 - Table view allows for direct cell editing, adding/removing rows and columns
+
+### XML Support
+
+XML files are parsed and displayed with syntax highlighting:
+- Converts XML to JSON structure for tree view navigation
+- Full syntax highlighting with proper tag and attribute coloring
+- Tree view support for hierarchical XML structure
+
+### PLIST Support
+
+PLIST files support both XML and binary formats:
+- Automatic detection of binary vs XML PLIST format
+- Binary PLISTs are converted to readable JSON for display
+- XML PLISTs display with proper syntax highlighting
+- Tree view support for navigating PLIST structure
 
 ## Development Workflow
 
