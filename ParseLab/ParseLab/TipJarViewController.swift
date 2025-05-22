@@ -19,12 +19,14 @@ class TipJarViewController: UIViewController {
     ]
     
     private var tipButtons: [UIButton] = []
+    private var products: [Product] = []
     
     // MARK: - Lifecycle
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        loadProducts()
     }
     
     // MARK: - UI Setup
@@ -155,18 +157,15 @@ class TipJarViewController: UIViewController {
     
     @objc private func tipButtonTapped(_ sender: UIButton) {
         let selectedTip = tipOptions[sender.tag]
-        _ = selectedTip.2 // productId for future StoreKit integration
+        let productId = selectedTip.2
         
-        // Show loading indicator
-        let loadingAlert = UIAlertController(title: "Processing", message: "Please wait...", preferredStyle: .alert)
-        present(loadingAlert, animated: true)
+        guard let product = products.first(where: { $0.id == productId }) else {
+            showError("Product not available")
+            return
+        }
         
-        // In a real app, you would initiate StoreKit purchase here
-        // For now, we'll simulate a successful purchase
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            loadingAlert.dismiss(animated: true) {
-                self?.showSuccessMessage()
-            }
+        Task {
+            await purchaseProduct(product)
         }
     }
     
@@ -182,5 +181,79 @@ class TipJarViewController: UIViewController {
         })
         
         present(alert, animated: true, completion: nil)
+    }
+    
+    // MARK: - StoreKit 2 Implementation
+    
+    private func loadProducts() {
+        Task {
+            do {
+                let productIds = tipOptions.map { $0.2 }
+                let products = try await Product.products(for: productIds)
+                await MainActor.run {
+                    self.products = products
+                    self.updateButtonPrices()
+                }
+            } catch {
+                await MainActor.run {
+                    self.showError("Failed to load products: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    private func updateButtonPrices() {
+        for (index, button) in tipButtons.enumerated() {
+            let tipOption = tipOptions[index]
+            if let product = products.first(where: { $0.id == tipOption.2 }) {
+                let fullTitle = "\(tipOption.0) - \(product.displayPrice)"
+                button.setTitle(fullTitle, for: .normal)
+            }
+        }
+    }
+    
+    private func purchaseProduct(_ product: Product) async {
+        do {
+            let result = try await product.purchase()
+            
+            switch result {
+            case .success(let verification):
+                switch verification {
+                case .verified(let transaction):
+                    await transaction.finish()
+                    await MainActor.run {
+                        self.showSuccessMessage()
+                    }
+                case .unverified:
+                    await MainActor.run {
+                        self.showError("Purchase could not be verified")
+                    }
+                }
+            case .userCancelled:
+                break
+            case .pending:
+                await MainActor.run {
+                    self.showError("Purchase is pending approval")
+                }
+            @unknown default:
+                await MainActor.run {
+                    self.showError("Unknown purchase result")
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.showError("Purchase failed: \(error.localizedDescription)")
+            }
+        }
+    }
+    
+    private func showError(_ message: String) {
+        let alert = UIAlertController(
+            title: "Error",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }
